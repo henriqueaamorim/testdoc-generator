@@ -136,26 +136,28 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
         <CardContent>
           <div className="space-y-4">
             {/* Add Requirement Form */}
-            <div className="grid grid-cols-12 gap-4 p-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
-              <div className="col-span-12 sm:col-span-2">
-                <Label className="text-sm font-medium">ID</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                  <Badge variant="outline" className="font-mono text-muted-foreground">
-                    REQ-AUTO
-                  </Badge>
+            <div className="p-4 bg-muted/30 rounded-lg border-2 border-dashed border-border space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="sm:col-span-1">
+                  <Label className="text-sm font-medium">ID</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    <Badge variant="outline" className="font-mono text-muted-foreground">
+                      REQ-AUTO
+                    </Badge>
+                  </div>
+                </div>
+                <div className="sm:col-span-3">
+                  <Label className="text-sm font-medium">Descrição do Requisito</Label>
+                  <Textarea
+                    placeholder="Descreva o requisito..."
+                    value={newRequirement.description}
+                    onChange={(e) => setNewRequirement({ description: e.target.value })}
+                    className="mt-1 min-h-[80px]"
+                  />
                 </div>
               </div>
-              <div className="col-span-12 sm:col-span-9">
-                <Label className="text-sm font-medium">Descrição do Requisito</Label>
-                <Textarea
-                  placeholder="Descreva o requisito..."
-                  value={newRequirement.description}
-                  onChange={(e) => setNewRequirement({ description: e.target.value })}
-                  className="mt-1 min-h-[80px]"
-                />
-              </div>
-              <div className="col-span-12 sm:col-span-1 flex items-end">
+              <div className="flex justify-end">
                 <Button
                   onClick={addRequirement}
                   size="sm"
