@@ -3,7 +3,7 @@ export interface ExportOptions {
   sections: ExportSection[];
 }
 
-export type ExportFormat = 'pdf' | 'excel' | 'json';
+export type ExportFormat = 'pdf' | 'excel' | 'json' | 'markdown';
 
 export interface ExportSection {
   id: string;

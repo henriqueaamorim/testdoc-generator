@@ -15,6 +15,7 @@ import {
   FileText, 
   FileSpreadsheet, 
   Code, 
+  FileEdit,
   Download, 
   CheckCircle, 
   XCircle,
@@ -25,6 +26,7 @@ import { ProjectData } from "../DocumentationWizard";
 import { ExportFormat, ExportProgress } from "@/types/export.types";
 import { generatePDF } from "./PDFExporter";
 import { generateExcel } from "./ExcelExporter";
+import { generateMarkdown } from "./MarkdownExporter";
 import { validateProjectData } from "@/utils/exportHelpers";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,6 +57,13 @@ const formatConfigs = [
     description: 'Backup completo dos dados',
     icon: Code,
     color: 'text-blue-600'
+  },
+  {
+    id: 'markdown' as ExportFormat,
+    name: 'Markdown',
+    description: 'Documento em formato Markdown',
+    icon: FileEdit,
+    color: 'text-purple-600'
   }
 ];
 
@@ -162,6 +171,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
             setExportProgress(prev => prev.map(p => 
               p.format === format ? { ...p, progress: 100 } : p
             ));
+            break;
+
+          case 'markdown':
+            blob = await generateMarkdown(projectData, (progress) => {
+              setExportProgress(prev => prev.map(p => 
+                p.format === format ? { ...p, progress } : p
+              ));
+            });
+            filename = `${projectName}_Documentacao_${timestamp}.md`;
             break;
 
           default:

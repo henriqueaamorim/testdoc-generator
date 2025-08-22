@@ -63,6 +63,33 @@ export const getDeliveryStatus = (expectedDate: string, actualDate: string): { s
   }
 };
 
+export const formatMarkdownList = (items: any[], emptyMessage: string): string => {
+  if (!items || items.length === 0) return emptyMessage;
+  return items.map(item => `- ${item}`).join('\n');
+};
+
+export const formatMarkdownTable = (headers: string[], rows: any[][]): string => {
+  if (!rows || rows.length === 0) {
+    return `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n| ${headers.map(() => 'Nenhum dado disponível').join(' | ')} |`;
+  }
+  
+  const headerRow = `| ${headers.join(' | ')} |`;
+  const separator = `|${headers.map(() => '---').join('|')}|`;
+  const dataRows = rows.map(row => `| ${row.join(' | ')} |`).join('\n');
+  
+  return `${headerRow}\n${separator}\n${dataRows}`;
+};
+
+export const escapeMarkdown = (text: string): string => {
+  if (!text) return text;
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\|/g, '\\|')
+    .replace(/`/g, '\\`');
+};
+
 export const validateProjectData = (projectData: ProjectData): { isValid: boolean; missingFields: string[] } => {
   const missingFields: string[] = [];
 
