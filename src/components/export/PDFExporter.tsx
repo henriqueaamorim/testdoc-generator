@@ -15,6 +15,11 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   const margin = 20;
   let yPosition = margin;
 
+  // Font size constants
+  const TITLE_SIZE = 14;     // Títulos principais
+  const SUBTITLE_SIZE = 12;  // Subtítulos
+  const TEXT_SIZE = 10;      // Texto normal
+
   const deliveryStatus = getDeliveryStatus(projectData.expectedDeliveryDate, projectData.delivery.deliveryDate);
 
   // Helper function to add new page if needed
@@ -28,7 +33,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   // Helper function to add colored section title
   const addSectionTitle = (title: string) => {
     checkNewPage(25);
-    pdf.setFontSize(18);
+    pdf.setFontSize(TITLE_SIZE);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(21, 53, 9); // #153509
     pdf.text(title, margin, yPosition);
@@ -36,15 +41,27 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
     yPosition += 20; // Add more spacing after titles
   };
 
+  // Helper function to add subtitle
+  const addSubSectionTitle = (title: string) => {
+    checkNewPage(15);
+    pdf.setFontSize(SUBTITLE_SIZE);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(21, 53, 9); // #153509
+    pdf.text(title, margin, yPosition);
+    pdf.setTextColor(0, 0, 0); // Reset to black
+    yPosition += 10;
+  };
+
   // Helper function to add main title
   const addMainTitle = () => {
-    pdf.setFontSize(20);
+    pdf.setFontSize(TITLE_SIZE);
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 0, 0);
+    pdf.setTextColor(21, 53, 9); // #153509
     const title = 'Template de Processo de Teste de Software';
     const titleWidth = pdf.getTextWidth(title);
     const titleX = (pageWidth - titleWidth) / 2;
     pdf.text(title, titleX, yPosition);
+    pdf.setTextColor(0, 0, 0); // Reset to black
     yPosition += 25;
   };
 
@@ -81,6 +98,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
       pdf.rect(margin + labelWidth, currentY - 5, valueWidth, cellHeight, 'S');
       
       // Add text - label (bold)
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text(row[0], margin + 2, currentY);
@@ -96,7 +114,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   // Helper function to add phases table
   const addPhasesTable = (phases: any[]) => {
     if (phases.length === 0) {
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'normal');
       pdf.text('Nenhuma fase adicionada', margin + 5, yPosition);
       yPosition += 10;
@@ -122,6 +140,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
       pdf.rect(currentX, yPosition - 5, colWidths[index], cellHeight, 'S');
       
       // Add header text
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text(header, currentX + 1, yPosition);
@@ -150,6 +169,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
         pdf.rect(currentX, yPosition - 5, colWidths[index], cellHeight, 'S');
         
         // Add data text
+        pdf.setFontSize(TEXT_SIZE);
         pdf.setFont('helvetica', 'normal');
         const truncatedText = pdf.splitTextToSize(data, colWidths[index] - 2);
         pdf.text(truncatedText[0] || '', currentX + 1, yPosition);
@@ -169,7 +189,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
     
     if (isMultiline) {
       checkNewPage(20);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`${label}:`, margin, yPosition);
       yPosition += 8;
@@ -180,7 +200,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
       yPosition += lines.length * 6 + 5;
     } else {
       checkNewPage(8);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`${label}: `, margin, yPosition);
       
@@ -200,13 +220,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   addSectionTitle('PLANEJAMENTO');
 
   // Fases do Projeto
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Fases do Projeto:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Fases do Projeto:');
 
   addPhasesTable(projectData.planning.phases);
 
@@ -222,13 +236,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
 
   // Ambiente de Teste
   yPosition += 5;
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Ambiente de Teste:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Ambiente de Teste:');
 
   addField('Descrição', projectData.planning.environment.description, true);
   addField('URL de Acesso', projectData.planning.environment.urlAccess);
@@ -236,13 +244,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
 
   // Riscos
   yPosition += 5;
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Riscos:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Riscos:');
 
   addField('Técnicos', formatListField(projectData.planning.risks.technical, 'Nenhum risco técnico identificado'), true);
   addField('Requisitos', formatListField(projectData.planning.risks.requirements, 'Nenhum risco de requisitos identificado'), true);
@@ -257,23 +259,17 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   addSectionTitle('PROJETO');
 
   // Requisitos
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Requisitos:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Requisitos:');
 
   if (projectData.project.requirements.length === 0) {
-    pdf.setFontSize(12);
+    pdf.setFontSize(TEXT_SIZE);
     pdf.setFont('helvetica', 'normal');
     pdf.text('Nenhum requisito adicionado', margin + 5, yPosition);
     yPosition += 10;
   } else {
     projectData.project.requirements.forEach((req) => {
       checkNewPage(20);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`${formatFieldValue(req.id)}:`, margin + 5, yPosition);
       yPosition += 6;
@@ -287,23 +283,17 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
 
   // Casos de Teste
   yPosition += 5;
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Casos de Teste:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Casos de Teste:');
 
   if (projectData.project.testCases.length === 0) {
-    pdf.setFontSize(12);
+    pdf.setFontSize(TEXT_SIZE);
     pdf.setFont('helvetica', 'normal');
     pdf.text('Nenhum caso de teste adicionado', margin + 5, yPosition);
     yPosition += 10;
   } else {
     projectData.project.testCases.forEach((testCase) => {
       checkNewPage(30);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`${formatFieldValue(testCase.id)}: ${formatFieldValue(testCase.functionality)}`, margin + 5, yPosition);
       yPosition += 8;
@@ -323,23 +313,17 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   addSectionTitle('EXECUÇÃO');
 
   // Execuções de Teste
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Execuções de Teste:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Execuções de Teste:');
 
   if (projectData.execution.executions.length === 0) {
-    pdf.setFontSize(12);
+    pdf.setFontSize(TEXT_SIZE);
     pdf.setFont('helvetica', 'normal');
     pdf.text('Nenhuma execução realizada', margin + 5, yPosition);
     yPosition += 10;
   } else {
     projectData.execution.executions.forEach((exec) => {
       checkNewPage(20);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`Caso: ${formatFieldValue(exec.caseId)}`, margin + 5, yPosition);
       yPosition += 6;
@@ -354,23 +338,17 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
 
   // Defeitos Encontrados
   yPosition += 5;
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Defeitos Encontrados:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Defeitos Encontrados:');
 
   if (projectData.execution.defects.length === 0) {
-    pdf.setFontSize(12);
+    pdf.setFontSize(TEXT_SIZE);
     pdf.setFont('helvetica', 'normal');
     pdf.text('Nenhum defeito encontrado', margin + 5, yPosition);
     yPosition += 10;
   } else {
     projectData.execution.defects.forEach((defect) => {
       checkNewPage(25);
-      pdf.setFontSize(12);
+      pdf.setFontSize(TEXT_SIZE);
       pdf.setFont('helvetica', 'bold');
       pdf.text(`Caso: ${formatFieldValue(defect.caseId)}`, margin + 5, yPosition);
       yPosition += 6;
@@ -392,13 +370,7 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   addSectionTitle('ENTREGA');
 
   // Indicadores
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(21, 53, 9); // #153509
-  checkNewPage(15);
-  pdf.text('Indicadores:', margin, yPosition);
-  pdf.setTextColor(0, 0, 0); // Reset to black
-  yPosition += 10;
+  addSubSectionTitle('Indicadores:');
 
   addField('Casos Planejados', projectData.delivery.indicators.planned);
   addField('Casos Executados', projectData.delivery.indicators.executed);
