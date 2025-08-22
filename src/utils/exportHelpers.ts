@@ -1,8 +1,22 @@
 import { ProjectData } from "@/components/DocumentationWizard";
 
 export const formatDate = (dateString: string): string => {
-  if (!dateString) return '-';
+  if (!dateString) return 'Não definido';
   return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
+export const formatFieldValue = (value: any, emptyMessage: string = 'Não preenchido'): string => {
+  if (value === null || value === undefined || value === '') {
+    return emptyMessage;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(', ') : 'Nenhum item adicionado';
+  }
+  return String(value);
+};
+
+export const formatListField = (list: any[], emptyMessage: string): string => {
+  return list.length > 0 ? list.map(item => `• ${item}`).join('\n') : emptyMessage;
 };
 
 export const generateDocumentTitle = (projectData: ProjectData): string => {
