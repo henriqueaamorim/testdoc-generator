@@ -116,7 +116,7 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ projectData, updat
 
   const getTestCaseTitle = (caseId: string) => {
     const testCase = projectData.project.testCases.find(tc => tc.id === caseId);
-    return testCase?.title || 'Caso de teste não encontrado';
+    return testCase?.functionality || 'Caso de teste não encontrado';
   };
 
   const getStatusIcon = (status: string) => {
@@ -135,7 +135,7 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ projectData, updat
     const searchLower = searchTerm.toLowerCase();
     return exec.caseId.toLowerCase().includes(searchLower) ||
            exec.status.toLowerCase().includes(searchLower) ||
-           (testCase?.title.toLowerCase().includes(searchLower) || false);
+           (testCase?.functionality.toLowerCase().includes(searchLower) || false);
   });
 
   const executionStats = {
@@ -226,7 +226,7 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ projectData, updat
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {testCase?.title || 'Título não disponível'}
+                          {testCase?.functionality || 'Título não disponível'}
                         </p>
                       </div>
                       
@@ -303,7 +303,7 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ projectData, updat
                     <SelectContent>
                       {projectData.project.testCases.map((testCase) => (
                         <SelectItem key={testCase.id} value={testCase.id}>
-                          {testCase.id} - {testCase.title}
+                          {testCase.id} - {testCase.functionality}
                         </SelectItem>
                       ))}
                     </SelectContent>

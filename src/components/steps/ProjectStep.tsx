@@ -22,6 +22,8 @@ interface ProjectStepProps {
 
 export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updateProjectData }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [newRequirement, setNewRequirement] = useState({ description: '' });
+  const [newTestCase, setNewTestCase] = useState({ functionality: '', testScript: '' });
 
   const generateId = (prefix: string, existingIds: string[]): string => {
     let counter = 1;
@@ -44,13 +46,16 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
 
   // Requirements functions
   const addRequirement = () => {
+    if (!newRequirement.description.trim()) return;
+    
     const existingIds = projectData.project.requirements.map(req => req.id);
     const newId = generateId('REQ-', existingIds);
-    const newRequirement = {
+    const requirement = {
       id: newId,
-      description: ''
+      description: newRequirement.description.trim()
     };
-    updateProject('requirements', [...projectData.project.requirements, newRequirement]);
+    updateProject('requirements', [...projectData.project.requirements, requirement]);
+    setNewRequirement({ description: '' });
   };
 
   const updateRequirement = (index: number, field: keyof typeof projectData.project.requirements[0], value: string) => {
@@ -66,16 +71,17 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
 
   // Test Cases functions
   const addTestCase = () => {
+    if (!newTestCase.functionality.trim() || !newTestCase.testScript.trim()) return;
+    
     const existingIds = projectData.project.testCases.map(tc => tc.id);
     const newId = generateId('CT-', existingIds);
-    const newTestCase = {
+    const testCase = {
       id: newId,
-      title: '',
-      preconditions: '',
-      steps: '',
-      expectedResult: ''
+      functionality: newTestCase.functionality.trim(),
+      testScript: newTestCase.testScript.trim()
     };
-    updateProject('testCases', [...projectData.project.testCases, newTestCase]);
+    updateProject('testCases', [...projectData.project.testCases, testCase]);
+    setNewTestCase({ functionality: '', testScript: '' });
   };
 
   const updateTestCase = (index: number, field: keyof typeof projectData.project.testCases[0], value: string) => {
@@ -97,8 +103,8 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
 
   const filteredTestCases = projectData.project.testCases.filter(tc =>
     tc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tc.steps.toLowerCase().includes(searchTerm.toLowerCase())
+    tc.functionality.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tc.testScript.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -121,20 +127,46 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
       {/* Requirements */}
       <Card className="border-primary/20 bg-gradient-card">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Requisitos
-              <Badge variant="secondary">{projectData.project.requirements.length}</Badge>
-            </CardTitle>
-            <Button onClick={addRequirement} size="sm" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Adicionar Requisito
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Requisitos
+            <Badge variant="secondary">{projectData.project.requirements.length}</Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Add Requirement Form */}
+            <div className="grid grid-cols-12 gap-4 p-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
+              <div className="col-span-12 sm:col-span-2">
+                <Label className="text-sm font-medium">ID</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                  <Badge variant="outline" className="font-mono text-muted-foreground">
+                    REQ-AUTO
+                  </Badge>
+                </div>
+              </div>
+              <div className="col-span-12 sm:col-span-9">
+                <Label className="text-sm font-medium">Descrição do Requisito</Label>
+                <Textarea
+                  placeholder="Descreva o requisito..."
+                  value={newRequirement.description}
+                  onChange={(e) => setNewRequirement({ description: e.target.value })}
+                  className="mt-1 min-h-[80px]"
+                />
+              </div>
+              <div className="col-span-12 sm:col-span-1 flex items-end">
+                <Button
+                  onClick={addRequirement}
+                  size="sm"
+                  disabled={!newRequirement.description.trim()}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
             {filteredRequirements.length === 0 && projectData.project.requirements.length > 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 Nenhum requisito encontrado para "{searchTerm}"
@@ -187,20 +219,55 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
       {/* Test Cases */}
       <Card className="border-primary/20 bg-gradient-card">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TestTube className="h-5 w-5 text-primary" />
-              Casos de Teste
-              <Badge variant="secondary">{projectData.project.testCases.length}</Badge>
-            </CardTitle>
-            <Button onClick={addTestCase} size="sm" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Adicionar Caso de Teste
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <TestTube className="h-5 w-5 text-primary" />
+            Casos de Teste
+            <Badge variant="secondary">{projectData.project.testCases.length}</Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            {/* Add Test Case Form */}
+            <div className="p-4 bg-muted/30 rounded-lg border-2 border-dashed border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-muted-foreground" />
+                <Badge variant="outline" className="font-mono text-muted-foreground">
+                  CT-AUTO
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Funcionalidade</Label>
+                  <Input
+                    placeholder="Descreva a funcionalidade testada"
+                    value={newTestCase.functionality}
+                    onChange={(e) => setNewTestCase(prev => ({ ...prev, functionality: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Script de Teste</Label>
+                  <Textarea
+                    placeholder="Descreva os passos e resultado esperado..."
+                    value={newTestCase.testScript}
+                    onChange={(e) => setNewTestCase(prev => ({ ...prev, testScript: e.target.value }))}
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button
+                  onClick={addTestCase}
+                  size="sm"
+                  disabled={!newTestCase.functionality.trim() || !newTestCase.testScript.trim()}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
             {filteredTestCases.length === 0 && projectData.project.testCases.length > 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 Nenhum caso de teste encontrado para "{searchTerm}"
@@ -233,39 +300,19 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Título/Descrição</Label>
+                        <Label className="text-sm font-medium">Funcionalidade</Label>
                         <Input
-                          placeholder="Título do caso de teste"
-                          value={testCase.title}
-                          onChange={(e) => updateTestCase(actualIndex, 'title', e.target.value)}
+                          placeholder="Descreva a funcionalidade testada"
+                          value={testCase.functionality}
+                          onChange={(e) => updateTestCase(actualIndex, 'functionality', e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Pré-condições (opcional)</Label>
-                        <Input
-                          placeholder="Condições necessárias antes da execução"
-                          value={testCase.preconditions || ''}
-                          onChange={(e) => updateTestCase(actualIndex, 'preconditions', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Passos para Execução</Label>
+                        <Label className="text-sm font-medium">Script de Teste</Label>
                         <Textarea
-                          placeholder="1. Primeiro passo&#10;2. Segundo passo&#10;3. Terceiro passo..."
-                          value={testCase.steps}
-                          onChange={(e) => updateTestCase(actualIndex, 'steps', e.target.value)}
-                          className="min-h-[120px]"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Resultado Esperado</Label>
-                        <Textarea
-                          placeholder="Descreva o resultado esperado após a execução"
-                          value={testCase.expectedResult}
-                          onChange={(e) => updateTestCase(actualIndex, 'expectedResult', e.target.value)}
+                          placeholder="Descreva os passos e resultado esperado..."
+                          value={testCase.testScript}
+                          onChange={(e) => updateTestCase(actualIndex, 'testScript', e.target.value)}
                           className="min-h-[120px]"
                         />
                       </div>
@@ -304,13 +351,13 @@ export const ProjectStep: React.FC<ProjectStepProps> = ({ projectData, updatePro
             </div>
             <div className="p-4 bg-warning/10 rounded-lg">
               <div className="text-2xl font-bold text-warning">
-                {projectData.project.testCases.filter(tc => !tc.title || !tc.steps || !tc.expectedResult).length}
+                {projectData.project.testCases.filter(tc => !tc.functionality || !tc.testScript).length}
               </div>
               <div className="text-sm text-muted-foreground">Incompletos</div>
             </div>
             <div className="p-4 bg-accent/10 rounded-lg">
               <div className="text-2xl font-bold text-accent">
-                {Math.round((projectData.project.testCases.filter(tc => tc.title && tc.steps && tc.expectedResult).length / Math.max(projectData.project.testCases.length, 1)) * 100)}%
+                {Math.round((projectData.project.testCases.filter(tc => tc.functionality && tc.testScript).length / Math.max(projectData.project.testCases.length, 1)) * 100)}%
               </div>
               <div className="text-sm text-muted-foreground">Completos</div>
             </div>

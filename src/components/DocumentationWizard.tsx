@@ -53,10 +53,8 @@ export interface ProjectData {
     }>;
     testCases: Array<{
       id: string;
-      title: string;
-      preconditions?: string;
-      steps: string;
-      expectedResult: string;
+      functionality: string;
+      testScript: string;
     }>;
   };
   
@@ -179,7 +177,7 @@ export const DocumentationWizard: React.FC = () => {
     const hasRequirements = data.project.requirements.length > 0 && 
       data.project.requirements.some(req => req.description?.trim());
     const hasTestCases = data.project.testCases.length > 0 && 
-      data.project.testCases.some(tc => tc.title?.trim() && tc.steps?.trim() && tc.expectedResult?.trim());
+      data.project.testCases.some(tc => tc.functionality?.trim() && tc.testScript?.trim());
     
     return hasRequirements && hasTestCases;
   };
