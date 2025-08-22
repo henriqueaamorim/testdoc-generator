@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Calendar, 
   Target, 
@@ -126,65 +127,71 @@ export const PlanningStep: React.FC<PlanningStepProps> = ({ projectData, updateP
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {projectData.planning.phases.map((phase, index) => (
-              <div key={index} className="grid grid-cols-1 lg:grid-cols-5 gap-4 p-4 bg-background/50 rounded-lg">
-                <div>
-                  <Label className="text-sm font-medium">Etapa</Label>
-                  <Input
-                    value={phase.phase}
-                    onChange={(e) => updatePhase(index, 'phase', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Responsável</Label>
-                  <Input
-                    value={phase.responsible}
-                    onChange={(e) => updatePhase(index, 'responsible', e.target.value)}
-                    className="mt-1"
-                    placeholder="Nome do responsável"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Data Início</Label>
-                  <Input
-                    type="date"
-                    value={phase.startDate}
-                    onChange={(e) => updatePhase(index, 'startDate', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Data Fim</Label>
-                  <Input
-                    type="date"
-                    value={phase.endDate}
-                    onChange={(e) => updatePhase(index, 'endDate', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <Select
-                    value={phase.status}
-                    onValueChange={(value) => updatePhase(index, 'status', value)}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PHASE_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Etapa</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Data Início</TableHead>
+                <TableHead>Data Fim</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {projectData.planning.phases.map((phase, index) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <Input
+                      value={phase.phase}
+                      onChange={(e) => updatePhase(index, 'phase', e.target.value)}
+                      className="border-0 p-2 h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={phase.responsible}
+                      onChange={(e) => updatePhase(index, 'responsible', e.target.value)}
+                      placeholder="Nome do responsável"
+                      className="border-0 p-2 h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      value={phase.startDate}
+                      onChange={(e) => updatePhase(index, 'startDate', e.target.value)}
+                      className="border-0 p-2 h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      value={phase.endDate}
+                      onChange={(e) => updatePhase(index, 'endDate', e.target.value)}
+                      className="border-0 p-2 h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={phase.status}
+                      onValueChange={(value) => updatePhase(index, 'status', value)}
+                    >
+                      <SelectTrigger className="border-0 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PHASE_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
