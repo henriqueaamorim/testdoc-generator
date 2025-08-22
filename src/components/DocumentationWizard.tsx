@@ -8,6 +8,7 @@ import { PlanningStep } from "./steps/PlanningStep";
 import { ProjectStep } from "./steps/ProjectStep";
 import { ExecutionStep } from "./steps/ExecutionStep";
 import { DeliveryStep } from "./steps/DeliveryStep";
+import { ExportModal } from "./export/ExportModal";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ProjectData {
@@ -102,6 +103,7 @@ export const DocumentationWizard: React.FC = () => {
     const saved = localStorage.getItem('docGenerator_visitedSteps');
     return saved ? new Set(JSON.parse(saved)) : new Set([1]);
   });
+  const [showExportModal, setShowExportModal] = useState(false);
   const [projectData, setProjectData] = useState<ProjectData>(() => {
     const saved = localStorage.getItem('docGenerator_projectData');
     return saved ? JSON.parse(saved) : {
@@ -360,10 +362,7 @@ export const DocumentationWizard: React.FC = () => {
             {currentStep === STEPS.length ? (
               <Button
                 className="bg-gradient-primary hover:opacity-90 flex items-center gap-2"
-                onClick={() => toast({
-                  title: "Funcionalidade em desenvolvimento",
-                  description: "A geração de documentos será implementada na próxima versão.",
-                })}
+                onClick={() => setShowExportModal(true)}
               >
                 <FileText className="h-4 w-4" />
                 Gerar Documentos
@@ -379,6 +378,13 @@ export const DocumentationWizard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Export Modal */}
+        <ExportModal
+          open={showExportModal}
+          onOpenChange={setShowExportModal}
+          projectData={projectData}
+        />
       </div>
     </div>
   );

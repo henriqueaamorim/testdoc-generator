@@ -12,8 +12,10 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Target
+  Target,
+  Clock
 } from "lucide-react";
+import { getDeliveryStatus } from "@/utils/exportHelpers";
 import { ProjectData } from "../DocumentationWizard";
 
 interface DeliveryStepProps {
@@ -113,6 +115,9 @@ export const DeliveryStep: React.FC<DeliveryStepProps> = ({ projectData, updateP
   };
 
   const projectStatus = getProjectStatus();
+
+  // Get delivery status comparison
+  const deliveryStatusInfo = getDeliveryStatus(projectData.expectedDeliveryDate, projectData.delivery.deliveryDate);
 
   return (
     <div className="space-y-6">
@@ -391,7 +396,7 @@ export const DeliveryStep: React.FC<DeliveryStepProps> = ({ projectData, updateP
             {/* Final Status Summary */}
             <div className={`p-4 rounded-lg border-2 ${projectStatus.borderColor} ${projectStatus.bgColor}`}>
               <h4 className="font-medium mb-2">Status Final do Projeto</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-success" />
                   <span>{projectData.execution.executions.filter(e => e.status === 'Aprovado').length} Aprovados</span>
@@ -403,6 +408,16 @@ export const DeliveryStep: React.FC<DeliveryStepProps> = ({ projectData, updateP
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-warning" />
                   <span>{indicators.openDefects} Defeitos Abertos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {deliveryStatusInfo.icon === 'CheckCircle' ? (
+                    <CheckCircle className={`h-4 w-4 ${deliveryStatusInfo.color}`} />
+                  ) : (
+                    <Clock className={`h-4 w-4 ${deliveryStatusInfo.color}`} />
+                  )}
+                  <span className={deliveryStatusInfo.color}>
+                    {deliveryStatusInfo.status}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Target className={`h-4 w-4 ${projectStatus.color}`} />
