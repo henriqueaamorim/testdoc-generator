@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, FileText, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Save, Check, AlertTriangle } from "lucide-react";
 import { HeaderStep } from "./steps/HeaderStep";
 import { PlanningStep } from "./steps/PlanningStep";
 import { ProjectStep } from "./steps/ProjectStep";
@@ -100,6 +100,10 @@ const STEPS = [
 
 export const DocumentationWizard: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(() => {
+    const saved = localStorage.getItem('docGenerator_visitedSteps');
+    return saved ? new Set(JSON.parse(saved)) : new Set([1]);
+  });
   const [projectData, setProjectData] = useState<ProjectData>(() => {
     const saved = localStorage.getItem('docGenerator_projectData');
     return saved ? JSON.parse(saved) : {
@@ -138,19 +142,88 @@ export const DocumentationWizard: React.FC = () => {
   useEffect(() => {
     const saveTimer = setTimeout(() => {
       localStorage.setItem('docGenerator_projectData', JSON.stringify(projectData));
+      localStorage.setItem('docGenerator_visitedSteps', JSON.stringify([...visitedSteps]));
       console.log('Data auto-saved');
     }, 1000);
 
     return () => clearTimeout(saveTimer);
-  }, [projectData]);
+  }, [projectData, visitedSteps]);
+
+  // Validation functions
+  const validateHeaderStep = (data: ProjectData): boolean => {
+    const isDateValid = data.startDate && data.expectedDeliveryDate 
+      ? new Date(data.startDate) <= new Date(data.expectedDeliveryDate) 
+      : false;
+    
+    return !!(
+      data.projectName?.trim() &&
+      data.projectVersion?.trim() &&
+      data.testResponsible?.trim() &&
+      data.startDate &&
+      data.expectedDeliveryDate &&
+      isDateValid
+    );
+  };
+
+  const validatePlanningStep = (data: ProjectData): boolean => {
+    const hasValidPhases = data.planning.phases.some(phase => 
+      phase.phase?.trim() && phase.responsible?.trim()
+    );
+    const hasEnvironment = data.planning.environment.description?.trim();
+    const hasStrategies = data.planning.testStrategy.length > 0;
+    
+    return hasValidPhases && !!hasEnvironment && hasStrategies;
+  };
+
+  const validateProjectStep = (data: ProjectData): boolean => {
+    const hasRequirements = data.project.requirements.length > 0 && 
+      data.project.requirements.some(req => req.description?.trim());
+    const hasTestCases = data.project.testCases.length > 0 && 
+      data.project.testCases.some(tc => tc.title?.trim() && tc.steps?.trim() && tc.expectedResult?.trim());
+    
+    return hasRequirements && hasTestCases;
+  };
+
+  const validateExecutionStep = (data: ProjectData): boolean => {
+    return data.execution.executions.length > 0;
+  };
+
+  const validateDeliveryStep = (data: ProjectData): boolean => {
+    return data.delivery.indicators.planned > 0 && !!data.delivery.summary?.trim();
+  };
+
+  const getStepStatus = (stepId: number): 'complete' | 'pending' | 'unvisited' => {
+    if (!visitedSteps.has(stepId)) return 'unvisited';
+    
+    let isValid = false;
+    switch (stepId) {
+      case 1: isValid = validateHeaderStep(projectData); break;
+      case 2: isValid = validatePlanningStep(projectData); break;
+      case 3: isValid = validateProjectStep(projectData); break;
+      case 4: isValid = validateExecutionStep(projectData); break;
+      case 5: isValid = validateDeliveryStep(projectData); break;
+    }
+    
+    return isValid ? 'complete' : 'pending';
+  };
 
   const updateProjectData = (data: Partial<ProjectData>) => {
     setProjectData(prev => ({ ...prev, ...data }));
   };
 
+  const goToStep = (stepId: number) => {
+    // Allow navigation to visited steps or the next sequential step
+    if (visitedSteps.has(stepId) || stepId === Math.max(...visitedSteps) + 1) {
+      setCurrentStep(stepId);
+      setVisitedSteps(prev => new Set([...prev, stepId]));
+    }
+  };
+
   const nextStep = () => {
     if (currentStep < STEPS.length) {
-      setCurrentStep(prev => prev + 1);
+      const nextStepId = currentStep + 1;
+      setCurrentStep(nextStepId);
+      setVisitedSteps(prev => new Set([...prev, nextStepId]));
     }
   };
 
@@ -205,31 +278,54 @@ export const DocumentationWizard: React.FC = () => {
             
             {/* Step indicators */}
             <div className="flex justify-between">
-              {STEPS.map((step) => (
-                <div
-                  key={step.id}
-                  className={`flex items-center space-x-2 ${
-                    step.id === currentStep
-                      ? 'text-primary font-medium'
-                      : step.id < currentStep
-                      ? 'text-success'
-                      : 'text-muted-foreground'
-                  }`}
-                >
+              {STEPS.map((step) => {
+                const status = getStepStatus(step.id);
+                const isClickable = visitedSteps.has(step.id) || step.id === Math.max(...visitedSteps) + 1;
+                
+                return (
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    key={step.id}
+                    className={`flex items-center space-x-2 ${
                       step.id === currentStep
-                        ? 'bg-primary text-primary-foreground'
-                        : step.id < currentStep
-                        ? 'bg-success text-white'
-                        : 'bg-muted text-muted-foreground'
+                        ? 'text-primary font-medium'
+                        : status === 'complete'
+                        ? 'text-success'
+                        : status === 'pending'
+                        ? 'text-warning'
+                        : 'text-muted-foreground'
                     }`}
                   >
-                    {step.id < currentStep ? '✓' : step.id}
+                    <div
+                      onClick={() => isClickable && goToStep(step.id)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                        isClickable ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed'
+                      } ${
+                        step.id === currentStep
+                          ? 'bg-primary text-primary-foreground'
+                          : status === 'complete'
+                          ? 'bg-success text-white'
+                          : status === 'pending'
+                          ? 'bg-warning text-white'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                      title={
+                        isClickable 
+                          ? `Ir para ${step.title}`
+                          : `Complete os passos anteriores para acessar ${step.title}`
+                      }
+                    >
+                      {status === 'complete' ? (
+                        <Check className="h-4 w-4" />
+                      ) : status === 'pending' ? (
+                        <AlertTriangle className="h-4 w-4" />
+                      ) : (
+                        step.id
+                      )}
+                    </div>
+                    <span className="text-xs lg:text-sm">{step.title}</span>
                   </div>
-                  <span className="text-xs lg:text-sm">{step.title}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
