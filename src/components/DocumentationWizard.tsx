@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, FileText, Save, Check, AlertTriangle, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Save, Check, AlertTriangle, Upload, RotateCcw } from "lucide-react";
 import { HeaderStep } from "./steps/HeaderStep";
 import { PlanningStep } from "./steps/PlanningStep";
 import { ProjectStep } from "./steps/ProjectStep";
@@ -10,6 +10,7 @@ import { ExecutionStep } from "./steps/ExecutionStep";
 import { DeliveryStep } from "./steps/DeliveryStep";
 import { ExportModal } from "./export/ExportModal";
 import { ImportModal } from "./import/ImportModal";
+import { ClearDataModal } from "./clear/ClearDataModal";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ProjectData {
@@ -98,6 +99,35 @@ const STEPS = [
   { id: 5, title: "Entrega", component: DeliveryStep },
 ];
 
+const getDefaultProjectData = (): ProjectData => ({
+  projectName: '',
+  projectVersion: '',
+  testResponsible: '',
+  startDate: '',
+  expectedDeliveryDate: '',
+  planning: {
+    phases: [
+      { phase: 'Planejamento', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
+      { phase: 'Projeto', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
+      { phase: 'Execução', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
+      { phase: 'Entrega', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
+    ],
+    scopeIncluded: [],
+    scopeExcluded: [],
+    testStrategy: [],
+    environment: { description: '', urlAccess: '', equipment: '' },
+    risks: { technical: [], requirements: [], schedule: [], operational: [], quality: [] },
+    successRate: 0,
+  },
+  project: { requirements: [], testCases: [] },
+  execution: { executions: [], defects: [] },
+  delivery: {
+    indicators: { planned: 0, executed: 0, openDefects: 0, fixedDefects: 0, successRate: 0 },
+    summary: '',
+    deliveryDate: new Date().toISOString().split('T')[0],
+  },
+});
+
 export const DocumentationWizard: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(() => {
@@ -106,36 +136,10 @@ export const DocumentationWizard: React.FC = () => {
   });
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [projectData, setProjectData] = useState<ProjectData>(() => {
     const saved = localStorage.getItem('docGenerator_projectData');
-    return saved ? JSON.parse(saved) : {
-      projectName: '',
-      projectVersion: '',
-      testResponsible: '',
-      startDate: '',
-      expectedDeliveryDate: '',
-      planning: {
-        phases: [
-          { phase: 'Planejamento', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
-          { phase: 'Projeto', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
-          { phase: 'Execução', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
-          { phase: 'Entrega', responsible: '', startDate: '', endDate: '', status: 'Pendente' },
-        ],
-        scopeIncluded: [],
-        scopeExcluded: [],
-        testStrategy: [],
-        environment: { description: '', urlAccess: '', equipment: '' },
-        risks: { technical: [], requirements: [], schedule: [], operational: [], quality: [] },
-        successRate: 0,
-      },
-      project: { requirements: [], testCases: [] },
-      execution: { executions: [], defects: [] },
-      delivery: {
-        indicators: { planned: 0, executed: 0, openDefects: 0, fixedDefects: 0, successRate: 0 },
-        summary: '',
-        deliveryDate: new Date().toISOString().split('T')[0],
-      },
-    };
+    return saved ? JSON.parse(saved) : getDefaultProjectData();
   });
   
   const { toast } = useToast();
@@ -255,6 +259,22 @@ export const DocumentationWizard: React.FC = () => {
     });
   };
 
+  const handleClearData = () => {
+    // Clear localStorage
+    localStorage.removeItem('docGenerator_projectData');
+    localStorage.removeItem('docGenerator_visitedSteps');
+    
+    // Reset state to default
+    setProjectData(getDefaultProjectData());
+    setVisitedSteps(new Set([1]));
+    setCurrentStep(1);
+    
+    toast({
+      title: "Dados limpos",
+      description: "Todos os dados foram removidos. Você pode começar um novo projeto.",
+    });
+  };
+
   const CurrentStepComponent = STEPS[currentStep - 1].component;
   const progress = (currentStep / STEPS.length) * 100;
 
@@ -273,6 +293,14 @@ export const DocumentationWizard: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowClearModal(true)}
+                className="flex items-center gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Limpar
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowImportModal(true)}
@@ -415,6 +443,13 @@ export const DocumentationWizard: React.FC = () => {
           open={showImportModal}
           onOpenChange={setShowImportModal}
           onImport={handleImportData}
+        />
+
+        {/* Clear Data Modal */}
+        <ClearDataModal
+          open={showClearModal}
+          onOpenChange={setShowClearModal}
+          onConfirm={handleClearData}
         />
       </div>
     </div>
