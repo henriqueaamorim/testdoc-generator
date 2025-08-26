@@ -230,11 +230,14 @@ const parseMarkdownTable = (content: string): string[][] => {
   
   if (tableLines.length < 2) return [];
   
-  // Remove apenas a linha separadora do cabeçalho (linha 2)
-  // Manter cabeçalho (linha 1) e todos os dados (linha 3+)
-  const dataLines = tableLines.slice(1).filter(line => !line.match(/^\|[\s\-\|]+\|$/));
+  // Remover apenas linhas separadoras (que contêm --- )
+  // Manter tanto cabeçalho quanto dados
+  const dataLines = tableLines.filter(line => !line.match(/^\|[\s\-\:]+\|$/));
   
-  return dataLines.map(line => 
+  // Se ainda temos cabeçalho, removê-lo agora (primeira linha)
+  const finalDataLines = dataLines.length > 1 ? dataLines.slice(1) : dataLines;
+  
+  return finalDataLines.map(line => 
     line.split('|')
       .slice(1, -1) // Remove empty first and last elements
       .map(cell => cell.trim())
@@ -257,27 +260,38 @@ const parseMarkdownList = (content: string): string[] => {
 const parseDate = (dateStr: string): string => {
   if (!dateStr || dateStr === 'Não definido' || dateStr === '-') return '';
   
-  // Priorizar formato brasileiro DD/MM/YYYY
-  const parts = dateStr.split('/');
-  if (parts.length === 3) {
-    const [day, month, year] = parts;
-    const dayNum = parseInt(day);
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year);
+  // Detectar formato brasileiro DD/MM/YYYY com regex mais rigoroso
+  const brazilianDateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const brazilianMatch = dateStr.match(brazilianDateRegex);
+  
+  if (brazilianMatch) {
+    const [, day, month, year] = brazilianMatch;
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
     
-    // Validar se é formato DD/MM/YYYY (dia <= 31, mês <= 12)
-    if (dayNum <= 31 && monthNum <= 12 && yearNum > 1900) {
+    // Validações mais rigorosas para formato brasileiro
+    if (dayNum >= 1 && dayNum <= 31 && 
+        monthNum >= 1 && monthNum <= 12 && 
+        yearNum >= 1900 && yearNum <= 2100) {
+      
+      // Criar data e validar se é válida (ex: 31/02 seria inválido)
       const parsedDate = new Date(yearNum, monthNum - 1, dayNum);
-      if (!isNaN(parsedDate.getTime())) {
+      if (parsedDate.getFullYear() === yearNum && 
+          parsedDate.getMonth() === monthNum - 1 && 
+          parsedDate.getDate() === dayNum) {
         return parsedDate.toISOString().split('T')[0];
       }
     }
   }
   
-  // Fallback para outros formatos
-  const date = new Date(dateStr);
-  if (!isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0];
+  // Fallback para formato ISO (YYYY-MM-DD)
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
   }
   
   return '';
