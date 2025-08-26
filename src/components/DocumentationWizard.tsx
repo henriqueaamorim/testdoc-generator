@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, FileText, Save, Check, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Save, Check, AlertTriangle, Upload } from "lucide-react";
 import { HeaderStep } from "./steps/HeaderStep";
 import { PlanningStep } from "./steps/PlanningStep";
 import { ProjectStep } from "./steps/ProjectStep";
 import { ExecutionStep } from "./steps/ExecutionStep";
 import { DeliveryStep } from "./steps/DeliveryStep";
 import { ExportModal } from "./export/ExportModal";
+import { ImportModal } from "./import/ImportModal";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ProjectData {
@@ -104,6 +105,7 @@ export const DocumentationWizard: React.FC = () => {
     return saved ? new Set(JSON.parse(saved)) : new Set([1]);
   });
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [projectData, setProjectData] = useState<ProjectData>(() => {
     const saved = localStorage.getItem('docGenerator_projectData');
     return saved ? JSON.parse(saved) : {
@@ -241,6 +243,18 @@ export const DocumentationWizard: React.FC = () => {
     });
   };
 
+  const handleImportData = (importedData: ProjectData) => {
+    setProjectData(importedData);
+    // Reset visited steps to start from beginning with imported data
+    setVisitedSteps(new Set([1]));
+    setCurrentStep(1);
+    
+    toast({
+      title: "Dados importados com sucesso",
+      description: "O wizard foi atualizado com os dados do arquivo importado.",
+    });
+  };
+
   const CurrentStepComponent = STEPS[currentStep - 1].component;
   const progress = (currentStep / STEPS.length) * 100;
 
@@ -258,14 +272,24 @@ export const DocumentationWizard: React.FC = () => {
                 Crie documentos de teste padronizados de forma eficiente
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              Salvar Rascunho
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Importar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSave}
+                className="flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Salvar Rascunho
+              </Button>
+            </div>
           </div>
 
           {/* Progress */}
@@ -384,6 +408,13 @@ export const DocumentationWizard: React.FC = () => {
           open={showExportModal}
           onOpenChange={setShowExportModal}
           projectData={projectData}
+        />
+
+        {/* Import Modal */}
+        <ImportModal
+          open={showImportModal}
+          onOpenChange={setShowImportModal}
+          onImport={handleImportData}
         />
       </div>
     </div>
