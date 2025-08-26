@@ -230,8 +230,9 @@ const parseMarkdownTable = (content: string): string[][] => {
   
   if (tableLines.length < 2) return [];
   
-  // Remove header separator line
-  const dataLines = tableLines.slice(2);
+  // Remove apenas a linha separadora do cabeçalho (linha 2)
+  // Manter cabeçalho (linha 1) e todos os dados (linha 3+)
+  const dataLines = tableLines.slice(1).filter(line => !line.match(/^\|[\s\-\|]+\|$/));
   
   return dataLines.map(line => 
     line.split('|')
@@ -256,20 +257,28 @@ const parseMarkdownList = (content: string): string[] => {
 const parseDate = (dateStr: string): string => {
   if (!dateStr || dateStr === 'Não definido' || dateStr === '-') return '';
   
-  // Try to parse different date formats
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) {
-    // Try DD/MM/YYYY format
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  // Priorizar formato brasileiro DD/MM/YYYY
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+    
+    // Validar se é formato DD/MM/YYYY (dia <= 31, mês <= 12)
+    if (dayNum <= 31 && monthNum <= 12 && yearNum > 1900) {
+      const parsedDate = new Date(yearNum, monthNum - 1, dayNum);
       if (!isNaN(parsedDate.getTime())) {
         return parsedDate.toISOString().split('T')[0];
       }
     }
-    return '';
   }
   
-  return date.toISOString().split('T')[0];
+  // Fallback para outros formatos
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return date.toISOString().split('T')[0];
+  }
+  
+  return '';
 };
