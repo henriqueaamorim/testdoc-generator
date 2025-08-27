@@ -230,25 +230,14 @@ const parseMarkdownTable = (content: string): string[][] => {
   
   if (tableLines.length < 2) return [];
   
-  // Remover linhas separadoras (que contêm ---)
-  const withoutSeparators = tableLines.filter(line => !line.match(/^\|[\s\-\:]+\|$/));
+  // Remover apenas linhas separadoras (que contêm --- )
+  // Manter tanto cabeçalho quanto dados
+  const dataLines = tableLines.filter(line => !line.match(/^\|[\s\-\:]+\|$/));
   
-  // Remover cabeçalho (linha que contém ID, Funcionalidade, Script etc)
-  const withoutHeaders = withoutSeparators.filter(line => {
-    const cells = line.split('|').map(cell => cell.trim());
-    const hasHeaders = cells.some(cell => 
-      cell.toLowerCase().includes('id') || 
-      cell.toLowerCase().includes('funcionalidade') || 
-      cell.toLowerCase().includes('script') ||
-      cell.toLowerCase().includes('descrição') ||
-      cell.toLowerCase().includes('status') ||
-      cell.toLowerCase().includes('evidência')
-    );
-    return !hasHeaders;
-  });
+  // Se ainda temos cabeçalho, removê-lo agora (primeira linha)
+  const finalDataLines = dataLines.length > 1 ? dataLines.slice(1) : dataLines;
   
-  // Processar todas as linhas de dados
-  return withoutHeaders.map(line => 
+  return finalDataLines.map(line => 
     line.split('|')
       .slice(1, -1) // Remove empty first and last elements
       .map(cell => cell.trim())
