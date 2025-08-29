@@ -144,7 +144,7 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       }
 
       // Parse Casos de Teste
-      const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n\n([\s\S]*?)(?=\n### |$)/);
+      const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n\n([\s\S]*?)(?=\n# |$)/);
       if (testCasesMatch) {
         const testTable = parseMarkdownTable(testCasesMatch[1]);
         defaultData.project.testCases = testTable.map(row => ({
