@@ -223,26 +223,38 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
   }
 };
 
-// Funções auxiliares
+// Substituir parseMarkdownTable atual por este
 const parseMarkdownTable = (content: string): string[][] => {
-  const lines = content.split('\n').filter(line => line.trim());
-  const tableLines = lines.filter(line => line.startsWith('|') && line.endsWith('|'));
-  
+  // 1) Normaliza e captura linhas que pareçam de tabela (com ou sem '|' no fim)
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  const tableLines = lines.filter(l => /^\|/.test(l) || /(\S)\s*\|\s*(\S)/.test(l));
   if (tableLines.length < 2) return [];
-  
-  // Remover apenas linhas separadoras (que contêm --- )
-  // Manter tanto cabeçalho quanto dados
-  const dataLines = tableLines.filter(line => !line.match(/^\|[\s\-\:]+\|$/));
-  
-  // Se ainda temos cabeçalho, removê-lo agora (primeira linha)
-  const finalDataLines = dataLines.length > 1 ? dataLines.slice(1) : dataLines;
-  
-  return finalDataLines.map(line => 
-    line.split('|')
-      .slice(1, -1) // Remove empty first and last elements
-      .map(cell => cell.trim())
+
+  // 2) Garante '|' no início e no fim (facilita o split)
+  const normalized = tableLines.map(l => {
+    let s = l;
+    if (!s.startsWith('|')) s = '|' + s;
+    if (!s.endsWith('|')) s = s + '|';
+    return s;
+  });
+
+  // 3) Remove a linha separadora (2ª linha) do tipo ---/:---:
+  const sepRegex = /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|$/;
+  const withoutSep = normalized.filter((_, i) => i !== 1 || !sepRegex.test(normalized[1]));
+
+  // 4) Remove o cabeçalho (1ª linha restante)
+  const dataRows = withoutSep.slice(1);
+
+  // 5) Faz o split das células e remove linhas que são placeholders (ex.: '---')
+  const rows = dataRows.map(line =>
+    line.slice(1, -1).split('|').map(c => c.trim())
   );
+
+  // descarta linhas sem conteúdo real (tudo '---' ou '-')
+  const isRealRow = (cells: string[]) => cells.some(c => c && c !== '---' && c !== '-');
+  return rows.filter(isRealRow);
 };
+
 
 const parseMarkdownList = (content: string): string[] => {
   const lines = content.split('\n')
