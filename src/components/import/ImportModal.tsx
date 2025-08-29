@@ -54,6 +54,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       const data = parseMarkdownToProjectData(content);
       setProgress(80);
 
+      console.log('[PASSO 1 - MODAL] Dados Parseados:', data);
+
       setParsedData(data);
       setProgress(100);
       
