@@ -1,0 +1,55 @@
+export const testDocSchema = {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: "https://example.com/test-doc.schema.json",
+    type: "object",
+    required: [
+        "projectName",
+        "projectVersion",
+        "testResponsible",
+        "startDate",
+        "expectedDeliveryDate",
+        "project"
+    ],
+    properties: {
+        projectName: { type: "string", minLength: 1 },
+        projectVersion: { type: "string", minLength: 1 },
+        testResponsible: { type: "string", minLength: 1 },
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        expectedDeliveryDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        planning: { type: "object" },
+        project: {
+            type: "object",
+            required: ["requirements", "testCases"],
+            properties: {
+                requirements: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        required: ["id", "descricao"],
+                        properties: {
+                            id: { type: "string" },
+                            descricao: { type: "string" }
+                        }
+                    }
+                },
+                testCases: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        required: ["id", "functionality"],
+                        properties: {
+                            id: { type: "string" },
+                            functionality: { type: "string" },
+                            testScript: { type: "string" },
+                            preConditions: { type: "string" },
+                            expectedResult: { type: "string" }
+                        }
+                    }
+                }
+            }
+        },
+        execution: { type: "object" },
+        delivery: { type: "object" },
+        warnings: { type: "array" }
+    }
+};
