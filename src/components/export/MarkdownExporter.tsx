@@ -97,7 +97,7 @@ export const generateMarkdown = async (
   onProgress(70);
   markdown += `## EXECUÇÃO\n\n`;
   
-  markdown += `### Execuções de Teste\n\n`;
+  markdown += `### Execução dos Casos\n\n`;
   if (projectData.execution.executions.length > 0) {
     const execHeaders = ['Caso de Teste', 'Status', 'Evidência'];
     const execRows = projectData.execution.executions.map(exec => [
@@ -110,7 +110,7 @@ export const generateMarkdown = async (
     markdown += `Nenhuma execução realizada\n\n`;
   }
 
-  markdown += `### Defeitos Encontrados\n\n`;
+  markdown += `### Defeitos\n\n`;
   if (projectData.execution.defects.length > 0) {
     const defectHeaders = ['Caso de Teste', 'Descrição', 'Status', 'Severidade', 'Responsável'];
     const defectRows = projectData.execution.defects.map(defect => [

@@ -6,8 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
 import { ProjectData } from '@/components/DocumentationWizard';
-import { parseMarkdownToProjectData } from './MarkdownImporter';
 import { useToast } from '@/hooks/use-toast';
+import { parseMarkdown } from '@/services/api';
+import { backendToProjectData } from '@/services/mappers';
 
 interface ImportModalProps {
   open: boolean;
@@ -15,11 +16,7 @@ interface ImportModalProps {
   onImport: (data: ProjectData) => void;
 }
 
-export const ImportModal: React.FC<ImportModalProps> = ({
-  open,
-  onOpenChange,
-  onImport,
-}) => {
+export const ImportModal: React.FC<ImportModalProps> = ({ open, onOpenChange, onImport, }) => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,25 +44,19 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
     try {
       setProgress(20);
-      
       const content = await fileToRead.text();
       setProgress(50);
 
-      const data = parseMarkdownToProjectData(content);
+      const backendDoc = await parseMarkdown(content);
       setProgress(80);
 
-      console.log('[PASSO 1 - MODAL] Dados Parseados:', data);
-
+      const data = backendToProjectData(backendDoc);
       setParsedData(data);
       setProgress(100);
-      
-      toast({
-        title: "Arquivo processado com sucesso",
-        description: "Os dados foram extraídos do arquivo Markdown.",
-      });
-    } catch (err) {
+      toast({ title: 'Arquivo processado com sucesso', description: 'Os dados foram extraídos do arquivo Markdown.' });
+    } catch (err: any) {
       console.error('Erro ao processar arquivo:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido ao processar o arquivo');
+      setError(err?.message || 'Erro desconhecido ao processar o arquivo');
       setParsedData(null);
     } finally {
       setLoading(false);
@@ -75,10 +66,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const handleImport = () => {
     if (parsedData) {
       onImport(parsedData);
-      toast({
-        title: "Dados importados",
-        description: "Os dados foram importados com sucesso para o wizard.",
-      });
+      toast({ title: 'Dados importados', description: 'Os dados foram importados com sucesso para o wizard.' });
       handleClose();
     }
   };
@@ -94,15 +82,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   const getDataSummary = () => {
     if (!parsedData) return null;
-
-    const sections = [];
+    const sections = [] as string[];
     if (parsedData.projectName) sections.push('Cabeçalho');
     if (parsedData.planning.phases.some(p => p.responsible)) sections.push('Planejamento');
     if (parsedData.project.requirements.length > 0) sections.push('Requisitos');
     if (parsedData.project.testCases.length > 0) sections.push('Casos de Teste');
-    if (parsedData.execution.executions.length > 0) sections.push('Execuções');
+    if (parsedData.execution.executions.length > 0) sections.push('Execução dos Casos');
     if (parsedData.delivery.summary) sections.push('Entrega');
-
     return sections;
   };
 
@@ -122,15 +108,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="text-sm text-muted-foreground">
               Selecione um arquivo .md gerado por esta aplicação para importar os dados automaticamente.
             </div>
-            
             <div className="flex items-center gap-4">
-              <Input
-                type="file"
-                accept=".md"
-                onChange={handleFileChange}
-                disabled={loading}
-                className="flex-1"
-              />
+              <Input type="file" accept=".md" onChange={handleFileChange} disabled={loading} className="flex-1" />
               {file && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-4 w-4" />
@@ -168,7 +147,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   Arquivo processado com sucesso! As seguintes seções foram encontradas:
                 </AlertDescription>
               </Alert>
-
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <h4 className="font-medium">Dados Encontrados:</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -179,7 +157,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
                   ))}
                 </div>
-                
                 {parsedData.projectName && (
                   <div className="pt-2 border-t border-border">
                     <div className="text-sm">
@@ -188,7 +165,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   </div>
                 )}
               </div>
-
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
@@ -203,16 +179,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
           {/* Actions */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={handleClose}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleImport}
-              disabled={!parsedData || loading}
-              className="bg-gradient-primary hover:opacity-90"
-            >
-              Importar Dados
-            </Button>
+            <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!parsedData || loading} className="bg-gradient-primary hover:opacity-90">Importar Dados</Button>
           </div>
         </div>
       </DialogContent>

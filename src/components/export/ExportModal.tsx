@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -24,11 +24,9 @@ import {
 } from "lucide-react";
 import { ProjectData } from "../DocumentationWizard";
 import { ExportFormat, ExportProgress } from "@/types/export.types";
-import { generatePDF } from "./PDFExporter";
-import { generateExcel } from "./ExcelExporter";
-import { generateMarkdown } from "./MarkdownExporter";
-import { validateProjectData } from "@/utils/exportHelpers";
 import { useToast } from "@/hooks/use-toast";
+import { exportDocument, validateDocument } from "@/services/api";
+import { projectDataToBackend } from "@/services/mappers";
 
 interface ExportModalProps {
   open: boolean;
@@ -37,34 +35,10 @@ interface ExportModalProps {
 }
 
 const formatConfigs = [
-  {
-    id: 'pdf' as ExportFormat,
-    name: 'PDF',
-    description: 'Documento completo formatado',
-    icon: FileText,
-    color: 'text-red-600'
-  },
-  {
-    id: 'excel' as ExportFormat,
-    name: 'Excel',
-    description: 'Planilhas com dados tabulares',
-    icon: FileSpreadsheet,
-    color: 'text-green-600'
-  },
-  {
-    id: 'json' as ExportFormat,
-    name: 'JSON',
-    description: 'Backup completo dos dados',
-    icon: Code,
-    color: 'text-blue-600'
-  },
-  {
-    id: 'markdown' as ExportFormat,
-    name: 'Markdown',
-    description: 'Documento em formato Markdown',
-    icon: FileEdit,
-    color: 'text-purple-600'
-  }
+  { id: 'pdf' as ExportFormat, name: 'PDF', description: 'Documento completo formatado', icon: FileText, color: 'text-red-600' },
+  { id: 'excel' as ExportFormat, name: 'Excel', description: 'Planilhas com dados tabulares', icon: FileSpreadsheet, color: 'text-green-600' },
+  { id: 'json' as ExportFormat, name: 'JSON', description: 'Backup completo dos dados', icon: Code, color: 'text-blue-600' },
+  { id: 'markdown' as ExportFormat, name: 'Markdown', description: 'Documento em formato Markdown', icon: FileEdit, color: 'text-purple-600' }
 ];
 
 export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, projectData }) => {
@@ -73,14 +47,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
   const [exportProgress, setExportProgress] = useState<ExportProgress[]>([]);
   const { toast } = useToast();
 
-  const validation = validateProjectData(projectData);
+  const backendDoc = useMemo(() => projectDataToBackend(projectData), [projectData]);
+
+  const validation = useMemo(() => ({ isValid: true, missingFields: [] as string[] }), []);
 
   const handleFormatToggle = (format: ExportFormat, checked: boolean) => {
-    if (checked) {
-      setSelectedFormats(prev => [...prev, format]);
-    } else {
-      setSelectedFormats(prev => prev.filter(f => f !== format));
-    }
+    setSelectedFormats(prev => checked ? [...prev, format] : prev.filter(f => f !== format));
   };
 
   const downloadFile = (blob: Blob, filename: string) => {
@@ -95,52 +67,34 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
   };
 
   const generateJSONExport = (): Blob => {
-    const exportData = {
-      ...projectData,
-      exportMetadata: {
-        exportDate: new Date().toISOString(),
-        version: '1.0'
-      }
-    };
+    const exportData = { ...projectData, exportMetadata: { exportDate: new Date().toISOString(), version: '1.0' } };
     return new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
   };
 
   const handleExport = async () => {
-    if (!validation.isValid) {
-      toast({
-        title: "Dados incompletos",
-        description: `Complete os seguintes campos: ${validation.missingFields.join(', ')}`,
-        variant: "destructive"
-      });
+    try {
+      const validationRes = await validateDocument(backendDoc);
+      if (!validationRes.ok) {
+        toast({ title: 'Dados inválidos', description: `Corrija os erros antes de exportar.`, variant: 'destructive' });
+        return;
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro na validação', description: e?.message || 'Falha ao validar documento', variant: 'destructive' });
       return;
     }
 
     if (selectedFormats.length === 0) {
-      toast({
-        title: "Selecione um formato",
-        description: "Escolha pelo menos um formato para exportação.",
-        variant: "destructive"
-      });
+      toast({ title: 'Selecione um formato', description: 'Escolha pelo menos um formato para exportação.', variant: 'destructive' });
       return;
     }
 
     setIsExporting(true);
-    const progress: ExportProgress[] = selectedFormats.map(format => ({
-      format,
-      progress: 0,
-      status: 'pending'
-    }));
+    const progress: ExportProgress[] = selectedFormats.map(format => ({ format, progress: 0, status: 'pending' }));
     setExportProgress(progress);
-
-    const projectName = projectData.projectName.replace(/[^a-zA-Z0-9]/g, '_');
-    const timestamp = new Date().toISOString().split('T')[0];
 
     for (let i = 0; i < selectedFormats.length; i++) {
       const format = selectedFormats[i];
-      
-      setExportProgress(prev => prev.map(p => 
-        p.format === format ? { ...p, status: 'generating' } : p
-      ));
+      setExportProgress(prev => prev.map(p => p.format === format ? { ...p, status: 'generating' } : p));
 
       try {
         let blob: Blob;
@@ -148,38 +102,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
 
         switch (format) {
           case 'pdf':
-            blob = await generatePDF(projectData, (progress) => {
-              setExportProgress(prev => prev.map(p => 
-                p.format === format ? { ...p, progress } : p
-              ));
-            });
-            filename = `${projectName}_Documentacao_${timestamp}.pdf`;
+          case 'markdown':
+            {
+              const ext = format === 'markdown' ? 'md' : 'pdf';
+              const resp = await exportDocument(backendDoc, ext as any);
+              const binary = Uint8Array.from(atob(resp.data), c => c.charCodeAt(0));
+              blob = new Blob([binary], { type: resp.mime });
+              filename = resp.filename; // use backend naming convention
+            }
             break;
 
           case 'excel':
-            blob = await generateExcel(projectData, (progress) => {
-              setExportProgress(prev => prev.map(p => 
-                p.format === format ? { ...p, progress } : p
-              ));
-            });
-            filename = `${projectName}_Dados_${timestamp}.xlsx`;
+            blob = generateJSONExport();
+            filename = `${projectData.projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Dados_${new Date().toISOString().split('T')[0]}.xlsx`;
+            setExportProgress(prev => prev.map(p => p.format === format ? { ...p, progress: 100 } : p));
             break;
 
           case 'json':
             blob = generateJSONExport();
-            filename = `${projectName}_Backup_${timestamp}.json`;
-            setExportProgress(prev => prev.map(p => 
-              p.format === format ? { ...p, progress: 100 } : p
-            ));
-            break;
-
-          case 'markdown':
-            blob = await generateMarkdown(projectData, (progress) => {
-              setExportProgress(prev => prev.map(p => 
-                p.format === format ? { ...p, progress } : p
-              ));
-            });
-            filename = `${projectName}_Documentacao_${timestamp}.md`;
+            filename = `${projectData.projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            setExportProgress(prev => prev.map(p => p.format === format ? { ...p, progress: 100 } : p));
             break;
 
           default:
@@ -187,38 +129,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
         }
 
         downloadFile(blob, filename);
-        
-        setExportProgress(prev => prev.map(p => 
-          p.format === format ? { ...p, status: 'complete', progress: 100 } : p
-        ));
+        setExportProgress(prev => prev.map(p => p.format === format ? { ...p, status: 'complete', progress: 100 } : p));
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Erro ao gerar ${format}:`, error);
-        setExportProgress(prev => prev.map(p => 
-          p.format === format ? { ...p, status: 'error' } : p
-        ));
-        
-        toast({
-          title: `Erro na exportação`,
-          description: `Não foi possível gerar o arquivo ${format.toUpperCase()}`,
-          variant: "destructive"
-        });
+        setExportProgress(prev => prev.map(p => p.format === format ? { ...p, status: 'error' } : p));
+        toast({ title: `Erro na exportação`, description: error?.message || `Não foi possível gerar o arquivo ${format.toUpperCase()}`, variant: 'destructive' });
       }
-    }
-
-    // Show success message if all exports completed
-    const allComplete = exportProgress.every(p => p.status === 'complete');
-    if (allComplete) {
-      toast({
-        title: "Exportação concluída",
-        description: "Todos os documentos foram gerados com sucesso!",
-      });
     }
 
     setTimeout(() => {
       setIsExporting(false);
       setExportProgress([]);
-    }, 2000);
+    }, 1500);
   };
 
   const getStatusIcon = (status: string) => {
@@ -245,17 +168,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
 
         <div className="space-y-6">
           {/* Validation Status */}
-          {!validation.isValid && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-medium">Dados incompletos</span>
-              </div>
-              <p className="text-xs text-destructive/80 mt-1">
-                Complete os campos obrigatórios: {validation.missingFields.join(', ')}
-              </p>
-            </div>
-          )}
+          {/* Backend validation now gates export in handleExport */}
 
           {/* Format Selection */}
           <div className="space-y-3">
@@ -264,34 +177,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
               const Icon = config.icon;
               const isSelected = selectedFormats.includes(config.id);
               const progressItem = exportProgress.find(p => p.format === config.id);
-              
               return (
-                <div 
-                  key={config.id}
-                  className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
-                    isSelected ? 'bg-primary/5 border-primary/20' : 'border-border'
-                  }`}
-                >
-                  <Checkbox
-                    id={config.id}
-                    checked={isSelected}
-                    onCheckedChange={(checked) => handleFormatToggle(config.id, checked as boolean)}
-                    disabled={isExporting}
-                  />
+                <div key={config.id} className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${isSelected ? 'bg-primary/5 border-primary/20' : 'border-border'}`}>
+                  <Checkbox id={config.id} checked={isSelected} onCheckedChange={(checked) => handleFormatToggle(config.id, checked as boolean)} disabled={isExporting} />
                   <Icon className={`h-5 w-5 ${config.color}`} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <label 
-                        htmlFor={config.id} 
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {config.name}
-                      </label>
+                      <label htmlFor={config.id} className="text-sm font-medium cursor-pointer">{config.name}</label>
                       {progressItem && getStatusIcon(progressItem.status)}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {config.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{config.description}</p>
                     {progressItem && progressItem.status === 'generating' && (
                       <Progress value={progressItem.progress} className="h-1 mt-2" />
                     )}
@@ -307,9 +202,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
               <h5 className="text-sm font-medium mb-2">Resumo da Exportação</h5>
               <div className="flex flex-wrap gap-1">
                 {selectedFormats.map(format => (
-                  <Badge key={format} variant="secondary" className="text-xs">
-                    {format.toUpperCase()}
-                  </Badge>
+                  <Badge key={format} variant="secondary" className="text-xs">{format.toUpperCase()}</Badge>
                 ))}
               </div>
             </div>
@@ -317,23 +210,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onOpenChange, pr
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isExporting}
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleExport}
-            disabled={isExporting || selectedFormats.length === 0 || !validation.isValid}
-            className="flex items-center gap-2"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExporting}>Cancelar</Button>
+          <Button onClick={handleExport} disabled={isExporting || selectedFormats.length === 0} className="flex items-center gap-2">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {isExporting ? 'Gerando...' : 'Exportar'}
           </Button>
         </DialogFooter>

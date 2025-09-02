@@ -312,8 +312,8 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
   onProgress(70);
   addSectionTitle('EXECUÇÃO');
 
-  // Execuções de Teste
-  addSubSectionTitle('Execuções de Teste:');
+  // Execução dos Casos
+  addSubSectionTitle('Execução dos Casos:');
 
   if (projectData.execution.executions.length === 0) {
     pdf.setFontSize(TEXT_SIZE);
@@ -336,9 +336,9 @@ export const generatePDF = async (projectData: ProjectData, onProgress: (progres
     });
   }
 
-  // Defeitos Encontrados
+  // Defeitos
   yPosition += 5;
-  addSubSectionTitle('Defeitos Encontrados:');
+  addSubSectionTitle('Defeitos:');
 
   if (projectData.execution.defects.length === 0) {
     pdf.setFontSize(TEXT_SIZE);
