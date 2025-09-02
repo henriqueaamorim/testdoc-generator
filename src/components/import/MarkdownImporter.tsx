@@ -223,38 +223,49 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
   }
 };
 
-// Substituir parseMarkdownTable atual por este
+// Funções auxiliares
 const parseMarkdownTable = (content: string): string[][] => {
-  // 1) Normaliza e captura linhas que pareçam de tabela (com ou sem '|' no fim)
-  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-  const tableLines = lines.filter(l => /^\|/.test(l) || /(\S)\s*\|\s*(\S)/.test(l));
-  if (tableLines.length < 2) return [];
+  const lines = content.split('\n').filter(line => line.trim());
+  if (lines.length < 2) return [];
 
-  // 2) Garante '|' no início e no fim (facilita o split)
-  const normalized = tableLines.map(l => {
-    let s = l;
-    if (!s.startsWith('|')) s = '|' + s;
-    if (!s.endsWith('|')) s = s + '|';
-    return s;
-  });
+  // Encontra e remove a linha separadora (ex: |---|---|)
+  // para garantir que estamos processando apenas linhas de dados.
+  const separatorIndex = lines.findIndex(line => line.match(/^\|[\s\-\:]+\|$/));
+  if (separatorIndex === -1) {
+    // Se não houver separador, a tabela está mal formatada. Retorna vazio.
+    return [];
+  }
 
-  // 3) Remove a linha separadora (2ª linha) do tipo ---/:---:
-  const sepRegex = /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|$/;
-  const withoutSep = normalized.filter((_, i) => i !== 1 || !sepRegex.test(normalized[1]));
+  const dataLines = lines.slice(separatorIndex + 1);
+  const table: string[][] = [];
 
-  // 4) Remove o cabeçalho (1ª linha restante)
-  const dataRows = withoutSep.slice(1);
+  for (const line of dataLines) {
+    const trimmedLine = line.trim();
 
-  // 5) Faz o split das células e remove linhas que são placeholders (ex.: '---')
-  const rows = dataRows.map(line =>
-    line.slice(1, -1).split('|').map(c => c.trim())
-  );
+    // Se a linha começa com '|', ela é uma nova linha da tabela.
+    if (trimmedLine.startsWith('|')) {
+      const newRow = trimmedLine
+        .split('|')
+        .slice(1, -1) // Remove o primeiro e último elemento (vazios)
+        .map(cell => cell.trim());
+      table.push(newRow);
+    }
+    // Se a linha NÃO começa com '|' e já existem linhas na nossa tabela,
+    // então este texto é uma continuação da última célula da linha anterior.
+    else if (table.length > 0) {
+      const lastRow = table[table.length - 1];
+      const lastCellIndex = lastRow.length - 1;
 
-  // descarta linhas sem conteúdo real (tudo '---' ou '-')
-  const isRealRow = (cells: string[]) => cells.some(c => c && c !== '---' && c !== '-');
-  return rows.filter(isRealRow);
+      if (lastCellIndex >= 0) {
+        // Anexa o conteúdo da nova linha na última célula da linha anterior,
+        // adicionando um caractere de quebra de linha `\n` para manter a formatação.
+        lastRow[lastCellIndex] = (lastRow[lastCellIndex] + '\n' + trimmedLine).trim();
+      }
+    }
+  }
+
+  return table;
 };
-
 
 const parseMarkdownList = (content: string): string[] => {
   const lines = content.split('\n')
