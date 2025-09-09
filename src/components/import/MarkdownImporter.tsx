@@ -298,12 +298,212 @@ const parseDate = (dateStr: string): string => {
   return '';
 };
 
-// Parser especializado para casos de teste seguindo especificação detalhada
-const parseTestCasesSection = (sectionContent: string): Array<{id: string, functionality: string, testScript: string}> => {
-  console.log('🔍 [TEST CASES PARSER] Iniciando parsing especializado');
+// Interface for parsed tables
+interface ParsedTable {
+  header: string[];
+  separatorLine: string;
+  dataRows: string[][];
+  afterContent?: string;
+}
+
+// Detect test case format (list or table)
+function detectTestCaseFormat(content: string): 'list' | 'table' | 'unknown' {
+  const idTableCount = (content.match(/\|\s*ID\s*\|/gi) || []).length;
+  if (idTableCount > 1) return 'list';
+  
+  if (content.includes('| ID | Funcionalidade | Script |') || 
+      content.includes('|ID|Funcionalidade|Script|')) return 'table';
+  
+  return 'unknown';
+}
+
+// Split content into test case blocks using --- separators
+function splitIntoTestCaseBlocks(content: string): string[] {
+  const blocks = content.split(/^---+$/m).map(block => block.trim()).filter(block => block);
+  
+  // If no separators found, treat entire content as single block
+  if (blocks.length <= 1) {
+    // Look for multiple ID tables to split
+    const lines = content.split('\n');
+    const idTableIndices: number[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].match(/^\|\s*ID\s*\|$/i)) {
+        idTableIndices.push(i);
+      }
+    }
+    
+    if (idTableIndices.length > 1) {
+      const splitBlocks: string[] = [];
+      for (let i = 0; i < idTableIndices.length; i++) {
+        const start = idTableIndices[i];
+        const end = i < idTableIndices.length - 1 ? idTableIndices[i + 1] : lines.length;
+        const blockLines = lines.slice(start, end);
+        splitBlocks.push(blockLines.join('\n').trim());
+      }
+      return splitBlocks;
+    }
+  }
+  
+  return blocks;
+}
+
+// Extract tables from a content block
+function extractTablesFromBlock(block: string): ParsedTable[] {
+  const lines = block.split('\n');
+  const tables: ParsedTable[] = [];
+  let currentTable: Partial<ParsedTable> | null = null;
+  let afterTableContent: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Check for table header
+    if (line.match(/^\|\s*([^|]+)\s*\|$/)) {
+      // Save previous table if exists
+      if (currentTable && currentTable.header) {
+        if (afterTableContent.length > 0) {
+          currentTable.afterContent = afterTableContent.join('\n').trim();
+        }
+        tables.push(currentTable as ParsedTable);
+      }
+      
+      // Start new table
+      const headerMatch = line.match(/^\|\s*([^|]+)\s*\|$/);
+      currentTable = {
+        header: [headerMatch![1].trim()],
+        separatorLine: '',
+        dataRows: [],
+        afterContent: ''
+      };
+      afterTableContent = [];
+      continue;
+    }
+    
+    // Check for separator line
+    if (currentTable && line.match(/^\|\s*[-:]+\s*\|$/)) {
+      currentTable.separatorLine = line;
+      continue;
+    }
+    
+    // Check for data line
+    if (currentTable && line.match(/^\|\s*([^|]*)\s*\|$/)) {
+      const dataMatch = line.match(/^\|\s*([^|]*)\s*\|$/);
+      currentTable.dataRows.push([dataMatch![1].trim()]);
+      continue;
+    }
+    
+    // Check for script content ending with |
+    if (currentTable && line.endsWith('|') && !line.startsWith('|')) {
+      const content = line.slice(0, -1).trim();
+      if (content) {
+        afterTableContent.push(content);
+      }
+      continue;
+    }
+    
+    // Regular content line (for script content)
+    if (currentTable && line) {
+      afterTableContent.push(line);
+    }
+  }
+  
+  // Save last table
+  if (currentTable && currentTable.header) {
+    if (afterTableContent.length > 0) {
+      currentTable.afterContent = afterTableContent.join('\n').trim();
+    }
+    tables.push(currentTable as ParsedTable);
+  }
+  
+  return tables;
+}
+
+// Extract cell value from a parsed table
+function extractCellValue(table: ParsedTable): string {
+  return table.dataRows[0]?.[0] || '';
+}
+
+// Extract script content handling multiline content
+function extractScriptContent(table: ParsedTable): string {
+  const cellContent = table.dataRows[0]?.[0] || '';
+  const freeContent = table.afterContent || '';
+  
+  const fullContent = (cellContent + '\n' + freeContent).trim();
+  return normalizeScriptContent(fullContent);
+}
+
+// Normalize script content
+function normalizeScriptContent(content: string): string {
+  if (!content) return '';
+  
+  // Split into lines and process
+  const lines = content.split('\n');
+  const processedLines = lines.map(line => {
+    // Remove leading pipes if present
+    let processed = line.replace(/^\|\s*/, '').trimEnd();
+    return processed;
+  });
+  
+  // Remove empty lines at start and end
+  while (processedLines.length > 0 && !processedLines[0].trim()) {
+    processedLines.shift();
+  }
+  while (processedLines.length > 0 && !processedLines[processedLines.length - 1].trim()) {
+    processedLines.pop();
+  }
+  
+  return processedLines.join('\n');
+}
+
+// Parse test case from a single block (list format)
+function parseTestCaseBlock(block: string): {id: string, functionality: string, testScript: string} | null {
+  console.log('🔍 [TEST CASES] Parsing block:', block.substring(0, 100) + '...');
+  
+  const tables = extractTablesFromBlock(block);
+  console.log('🔍 [TEST CASES] Tables found:', tables.length);
+  
+  // Find specific tables
+  const idTable = tables.find(t => t.header.some(h => h.toLowerCase().includes('id')));
+  const funcTable = tables.find(t => t.header.some(h => h.toLowerCase().includes('funcionalidade')));
+  const scriptTable = tables.find(t => t.header.some(h => h.toLowerCase().includes('script')));
+  
+  if (!idTable || !funcTable || !scriptTable) {
+    console.log('⚠️ [TEST CASES] Missing required tables - ID:', !!idTable, 'Func:', !!funcTable, 'Script:', !!scriptTable);
+    return null;
+  }
+  
+  const testCase = {
+    id: extractCellValue(idTable),
+    functionality: extractCellValue(funcTable),
+    testScript: extractScriptContent(scriptTable)
+  };
+  
+  console.log('✅ [TEST CASES] Parsed test case:', testCase.id);
+  return testCase;
+}
+
+// Parse test cases in list format
+function parseTestCasesListFormat(content: string): Array<{id: string, functionality: string, testScript: string}> {
+  console.log('🔍 [TEST CASES] Parsing list format');
+  
+  const testCaseBlocks = splitIntoTestCaseBlocks(content);
+  console.log('🔍 [TEST CASES] Blocks found:', testCaseBlocks.length);
+  
+  const testCases = testCaseBlocks
+    .map(block => parseTestCaseBlock(block))
+    .filter((tc): tc is {id: string, functionality: string, testScript: string} => tc !== null);
+  
+  console.log('✅ [TEST CASES] Test cases parsed:', testCases.length);
+  return testCases;
+}
+
+// Parse test cases in table format (legacy)
+function parseTestCasesTableFormat(content: string): Array<{id: string, functionality: string, testScript: string}> {
+  console.log('🔍 [TEST CASES] Parsing table format (legacy)');
   
   const testCases: Array<{id: string, functionality: string, testScript: string}> = [];
-  const lines = sectionContent.split('\n');
+  const lines = content.split('\n');
   
   let i = 0;
   while (i < lines.length) {
@@ -392,6 +592,60 @@ const parseTestCasesSection = (sectionContent: string): Array<{id: string, funct
     }
   }
   
-  console.log(`✅ [TEST CASES PARSER] Finalizado. Total de casos encontrados: ${testCases.length}`);
   return testCases;
+}
+
+// Try both formats and return the one that works
+function tryBothFormats(content: string): Array<{id: string, functionality: string, testScript: string}> {
+  console.log('🔍 [TEST CASES] Trying both formats');
+  
+  // Try list format first
+  const listResults = parseTestCasesListFormat(content);
+  if (listResults.length > 0) {
+    console.log('✅ [TEST CASES] List format successful');
+    return listResults;
+  }
+  
+  // Try table format
+  const tableResults = parseTestCasesTableFormat(content);
+  console.log('✅ [TEST CASES] Table format results:', tableResults.length);
+  return tableResults;
+}
+
+// Main parsing function for test cases section
+const parseTestCasesSection = (sectionContent: string): Array<{id: string, functionality: string, testScript: string}> => {
+  if (!sectionContent.trim()) return [];
+  
+  console.log('🔍 [TEST CASES] Starting test case parsing');
+  
+  const format = detectTestCaseFormat(sectionContent);
+  console.log('🔍 [TEST CASES] Format detected:', format);
+  
+  let testCases: Array<{id: string, functionality: string, testScript: string}> = [];
+  
+  switch (format) {
+    case 'list':
+      testCases = parseTestCasesListFormat(sectionContent);
+      break;
+    case 'table':
+      testCases = parseTestCasesTableFormat(sectionContent);
+      break;
+    default:
+      testCases = tryBothFormats(sectionContent);
+      break;
+  }
+  
+  console.log('✅ [TEST CASES] Final test cases imported:', testCases.length);
+  
+  // Validate and filter
+  const validTestCases = testCases.filter(tc => {
+    const isValid = tc.id?.trim() && tc.functionality?.trim() && tc.testScript?.trim();
+    if (!isValid) {
+      console.log('⚠️ [TEST CASES] Invalid test case filtered out:', tc);
+    }
+    return isValid;
+  });
+  
+  console.log('✅ [TEST CASES] Valid test cases:', validTestCases.length);
+  return validTestCases;
 };
