@@ -124,18 +124,10 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
         const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n([\s\S]*?)(?=\n## |$)/);
         if (testCasesMatch) {
             console.log('🔍 [CASOS DE TESTE] Conteúdo encontrado:', testCasesMatch[1].substring(0, 200));
-            const testCasesTable = parseMarkdownTable(testCasesMatch[1]);
-            console.log('🔍 [CASOS DE TESTE] Tabela parseada:', testCasesTable);
+            const testCases = parseTestCasesSection(testCasesMatch[1]);
+            console.log('🔍 [CASOS DE TESTE] Casos parseados:', testCases);
             
-            defaultData.project.testCases = testCasesTable.map((row, index) => {
-                console.log(`✅ [CASOS DE TESTE] Processando linha ${index + 1}:`, row);
-                return {
-                    id: row[0] || `TC${String(index + 1).padStart(3, '0')}`,
-                    functionality: row[1] || '',
-                    testScript: row[2] || ''
-                };
-            });
-            
+            defaultData.project.testCases = testCases;
             console.log('✅ [CASOS DE TESTE] Total importados:', defaultData.project.testCases.length);
         }
     }
@@ -304,4 +296,102 @@ const parseDate = (dateStr: string): string => {
   }
   
   return '';
+};
+
+// Parser especializado para casos de teste seguindo especificação detalhada
+const parseTestCasesSection = (sectionContent: string): Array<{id: string, functionality: string, testScript: string}> => {
+  console.log('🔍 [TEST CASES PARSER] Iniciando parsing especializado');
+  
+  const testCases: Array<{id: string, functionality: string, testScript: string}> = [];
+  const lines = sectionContent.split('\n');
+  
+  let i = 0;
+  while (i < lines.length) {
+    // Procurar cabeçalho da tabela (ID | Funcionalidade/Título | Script/Script de teste/Roteiro)
+    const headerRegex = /^\|\s*ID\s*\|\s*(Funcionalidade|Título)\s*\|\s*(Script|Script de teste|Roteiro)\s*\|?$/i;
+    
+    if (headerRegex.test(lines[i]?.trim() || '')) {
+      console.log(`✅ [TEST CASES] Cabeçalho encontrado na linha ${i + 1}:`, lines[i]);
+      
+      // Verificar linha separadora
+      i++;
+      const separatorRegex = /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/;
+      if (i < lines.length && separatorRegex.test(lines[i]?.trim() || '')) {
+        console.log(`✅ [TEST CASES] Separador encontrado na linha ${i + 1}:`, lines[i]);
+        
+        // Processar linha de dados
+        i++;
+        if (i < lines.length) {
+          const dataLineRegex = /^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(.*)$/;
+          const match = lines[i]?.match(dataLineRegex);
+          
+          if (match) {
+            const id = match[1].trim();
+            const functionality = match[2].trim();
+            let scriptStart = match[3];
+            
+            console.log(`✅ [TEST CASES] Dados iniciais - ID: "${id}", Func: "${functionality}", Script início: "${scriptStart}"`);
+            
+            // Coletar script multilinha
+            const scriptLines: string[] = [];
+            
+            // Se há conteúdo na mesma linha do início, adicionar
+            if (scriptStart && scriptStart.trim() && !scriptStart.trim().endsWith('|')) {
+              scriptLines.push(scriptStart.trim());
+            }
+            
+            // Coletar linhas subsequentes até encontrar fechamento
+            i++;
+            let insideScript = true;
+            while (i < lines.length && insideScript) {
+              const currentLine = lines[i];
+              
+              // Linha de fechamento: apenas "|" ou linha terminando com " |"
+              if (currentLine?.trim() === '|') {
+                console.log(`✅ [TEST CASES] Fechamento encontrado na linha ${i + 1}`);
+                insideScript = false;
+              } else if (currentLine?.trimEnd().endsWith('|')) {
+                // Última linha do script com conteúdo
+                const lineContent = currentLine.trimEnd();
+                const contentWithoutPipe = lineContent.slice(0, -1).trim();
+                if (contentWithoutPipe) {
+                  scriptLines.push(contentWithoutPipe);
+                }
+                console.log(`✅ [TEST CASES] Linha final do script na linha ${i + 1}: "${contentWithoutPipe}"`);
+                insideScript = false;
+              } else if (currentLine && currentLine.trim()) {
+                // Linha intermediária do script
+                scriptLines.push(currentLine.trim());
+                console.log(`✅ [TEST CASES] Linha do script adicionada: "${currentLine.trim()}"`);
+              }
+              
+              i++;
+            }
+            
+            // Construir script final preservando quebras de linha
+            const testScript = scriptLines.join('\n').trim();
+            
+            if (id && functionality && testScript) {
+              const testCase = { id, functionality, testScript };
+              testCases.push(testCase);
+              console.log(`✅ [TEST CASES] Caso de teste adicionado:`, testCase);
+            } else {
+              console.warn(`⚠️ [TEST CASES] Caso incompleto ignorado - ID: "${id}", Func: "${functionality}", Script: "${testScript}"`);
+            }
+          } else {
+            console.warn(`⚠️ [TEST CASES] Linha de dados inválida na linha ${i + 1}:`, lines[i]);
+            i++;
+          }
+        }
+      } else {
+        console.warn(`⚠️ [TEST CASES] Separador não encontrado após cabeçalho na linha ${i + 1}`);
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+  
+  console.log(`✅ [TEST CASES PARSER] Finalizado. Total de casos encontrados: ${testCases.length}`);
+  return testCases;
 };
