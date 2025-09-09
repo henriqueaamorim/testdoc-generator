@@ -160,7 +160,7 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       defaultData.project.testCases = testTables.map(row => ({
         id: row[0] || '',
         functionality: row[1] || '',
-        testScript: (row[2] || '').replace(/<br\s*\/?>/gi, '\n') // Convert <br> to newlines
+        testScript: row[2] || ''
       }));
       console.log('✅ [CASOS DE TESTE] Test cases imported:', defaultData.project.testCases.length);
       console.log('📋 [DEBUG] Test cases data:', defaultData.project.testCases);
