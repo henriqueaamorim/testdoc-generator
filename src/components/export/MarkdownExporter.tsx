@@ -82,13 +82,20 @@ export const generateMarkdown = async (
 
   markdown += `### Casos de Teste\n\n`;
   if (projectData.project.testCases.length > 0) {
-    const testCaseHeaders = ['ID', 'Funcionalidade', 'Script de Teste'];
-    const testCaseRows = projectData.project.testCases.map(testCase => [
-      escapeMarkdown(formatFieldValue(testCase.id)),
-      escapeMarkdown(formatFieldValue(testCase.functionality)),
-      escapeMarkdown(formatFieldValue(testCase.testScript).replace(/\n/g, '<br>'))
-    ]);
-    markdown += formatMarkdownTable(testCaseHeaders, testCaseRows) + '\n\n';
+    const testCasesJSON = {
+      testCases: projectData.project.testCases.map(tc => ({
+        id: tc.id || '',
+        functionality: tc.functionality || '',
+        testScript: tc.testScript || ''
+      }))
+    };
+    
+    markdown += '```json\n' + JSON.stringify(testCasesJSON, null, 2) + '\n```\n\n';
+    
+    // Resumo legível
+    markdown += `**Resumo da Seção:**\n`;
+    markdown += `- **Total de Casos de Teste:** ${projectData.project.testCases.length}\n`;
+    markdown += `- **IDs:** ${projectData.project.testCases.map(tc => tc.id).join(', ')}\n\n`;
   } else {
     markdown += `Nenhum caso de teste adicionado\n\n`;
   }

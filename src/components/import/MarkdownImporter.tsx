@@ -152,18 +152,63 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       console.log('✅ [REQUISITOS] Requirements imported:', defaultData.project.requirements.length);
     }
 
-    // Parse test cases - simplified like requirements
+    // Parse test cases - JSON format with fallback to table
     const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n+([\s\S]*?)(?=\n### |\n## |$)/);
     if (testCasesMatch) {
-      console.log('🔍 [CASOS DE TESTE] Parsing test cases...');
-      const testTables = parseMarkdownTable(testCasesMatch[1]);
-      defaultData.project.testCases = testTables.map(row => ({
-        id: row[0] || '',
-        functionality: row[1] || '',
-        testScript: row[2] || ''
-      }));
-      console.log('✅ [CASOS DE TESTE] Test cases imported:', defaultData.project.testCases.length);
-      console.log('📋 [DEBUG] Test cases data:', defaultData.project.testCases);
+      console.log('📋 [CASOS DE TESTE] Seção encontrada, iniciando parsing...');
+      const testCasesContent = testCasesMatch[1];
+      
+      // Tentar parsing JSON primeiro
+      const jsonBlockRegex = /```json\s*\n([\s\S]*?)\n```/;
+      const jsonMatch = testCasesContent.match(jsonBlockRegex);
+      
+      if (jsonMatch) {
+        console.log('📋 [CASOS DE TESTE] Bloco JSON encontrado, parseando...');
+        try {
+          const jsonData = JSON.parse(jsonMatch[1]);
+          if (jsonData.testCases && Array.isArray(jsonData.testCases)) {
+            defaultData.project.testCases = jsonData.testCases.map(tc => ({
+              id: tc.id || '',
+              functionality: tc.functionality || '',
+              testScript: tc.testScript || ''
+            }));
+            console.log('✅ [CASOS DE TESTE] Importados via JSON:', defaultData.project.testCases.length, 'casos');
+          } else {
+            console.warn('⚠️ [CASOS DE TESTE] Estrutura JSON inválida');
+          }
+        } catch (error) {
+          console.error('❌ [CASOS DE TESTE] Erro no parsing JSON:', error);
+          console.log('🔄 [CASOS DE TESTE] Tentando fallback para tabela...');
+          
+          // Fallback para formato de tabela
+          const testTables = parseMarkdownTable(testCasesContent);
+          if (testTables.length > 0) {
+            defaultData.project.testCases = testTables.map(row => ({
+              id: row[0] || '',
+              functionality: row[1] || '',
+              testScript: (row[2] || '').replace(/<br>/g, '\n')
+            }));
+            console.log('✅ [CASOS DE TESTE] Importados via fallback (tabela):', defaultData.project.testCases.length, 'casos');
+          }
+        }
+      } else {
+        console.log('🔄 [CASOS DE TESTE] JSON não encontrado, usando formato de tabela...');
+        
+        // Formato antigo de tabela
+        const testTables = parseMarkdownTable(testCasesContent);
+        if (testTables.length > 0) {
+          defaultData.project.testCases = testTables.map(row => ({
+            id: row[0] || '',
+            functionality: row[1] || '',
+            testScript: (row[2] || '').replace(/<br>/g, '\n')
+          }));
+          console.log('✅ [CASOS DE TESTE] Importados via tabela:', defaultData.project.testCases.length, 'casos');
+        } else {
+          console.warn('⚠️ [CASOS DE TESTE] Nenhuma tabela encontrada');
+        }
+      }
+    } else {
+      console.warn('⚠️ [CASOS DE TESTE] Seção "Casos de Teste" não encontrada');
     }
   }
 
