@@ -152,13 +152,18 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       console.log('✅ [REQUISITOS] Requirements imported:', defaultData.project.requirements.length);
     }
 
-    // Parse test cases
+    // Parse test cases - simplified like requirements
     const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n([\s\S]*?)(?=\n### |$)/);
     if (testCasesMatch) {
       console.log('🔍 [CASOS DE TESTE] Parsing test cases...');
-      const testCases = parseTestCasesSection(testCasesMatch[1]);
-      defaultData.project.testCases = testCases;
+      const testTables = parseMarkdownTable(testCasesMatch[1]);
+      defaultData.project.testCases = testTables.map(row => ({
+        id: row[0] || '',
+        functionality: row[1] || '',
+        testScript: (row[2] || '').replace(/<br\s*\/?>/gi, '\n') // Convert <br> to newlines
+      }));
       console.log('✅ [CASOS DE TESTE] Test cases imported:', defaultData.project.testCases.length);
+      console.log('📋 [DEBUG] Test cases data:', defaultData.project.testCases);
     }
   }
 
@@ -262,40 +267,7 @@ function parseDate(dateStr: string): string {
   return '';
 }
 
-// Simplified test cases parsing - single table with 3 columns
-const parseTestCasesSection = (sectionContent: string): Array<{id: string, functionality: string, testScript: string}> => {
-  if (!sectionContent.trim()) return [];
-  
-  console.log('🔍 [TEST CASES] Parsing test cases (single table format)...');
-  
-  const tables = parseMarkdownTable(sectionContent);
-  if (tables.length === 0) {
-    console.log('⚠️ [TEST CASES] No tables found in section');
-    return [];
-  }
-  
-  const testCases: Array<{id: string, functionality: string, testScript: string}> = [];
-  
-  // Process each row as a test case
-  for (let i = 0; i < tables.length; i++) {
-    const row = tables[i];
-    if (row.length >= 3) {
-      const testCase = {
-        id: row[0]?.trim() || '',
-        functionality: row[1]?.trim() || '',
-        testScript: (row[2]?.trim() || '').replace(/<br\s*\/?>/gi, '\n') // Convert <br> back to newlines
-      };
-      
-      // Only add if it has valid data
-      if (testCase.id && testCase.functionality) {
-        testCases.push(testCase);
-      }
-    }
-  }
-  
-  console.log('✅ [TEST CASES] Successfully parsed cases:', testCases.length);
-  return testCases;
-};
+// Function no longer needed - using direct parsing like requirements
 
 export const MarkdownImporter: React.FC<MarkdownImporterProps> = ({ onImport }) => {
   return null;
