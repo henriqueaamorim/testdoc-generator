@@ -27,16 +27,52 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const validateMarkdownFile = async (file: File): Promise<boolean> => {
+    try {
+      // Validar extensão
+      if (!file.name.endsWith('.md')) {
+        setError('Por favor, selecione um arquivo .md válido');
+        return false;
+      }
+      
+      // Validar tipo MIME
+      if (file.type && !['text/markdown', 'text/plain', 'text/x-markdown'].includes(file.type)) {
+        setError('Tipo de arquivo inválido. Apenas arquivos Markdown são aceitos.');
+        return false;
+      }
+      
+      // Validar tamanho (máx 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Arquivo muito grande. Tamanho máximo: 5MB');
+        return false;
+      }
+      
+      // Validar conteúdo básico
+      const preview = await file.slice(0, 1000).text();
+      const hasMarkdownHeaders = /##\s+(CABEÇALHO|PLANEJAMENTO|PROJETO|EXECUÇÃO|ENTREGA)/i.test(preview);
+      const hasTableStructure = /\|.*\|/.test(preview);
+      
+      if (!hasMarkdownHeaders && !hasTableStructure) {
+        setError('O arquivo não parece ser um documento de teste válido. Verifique se contém as seções esperadas.');
+        return false;
+      }
+      
+      return true;
+    } catch (err) {
+      setError('Erro ao validar o arquivo');
+      return false;
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.md')) {
-        setError('Por favor, selecione um arquivo .md válido');
-        return;
+      const isValid = await validateMarkdownFile(selectedFile);
+      if (isValid) {
+        setFile(selectedFile);
+        setError(null);
+        handleParseFile(selectedFile);
       }
-      setFile(selectedFile);
-      setError(null);
-      handleParseFile(selectedFile);
     }
   };
 
@@ -121,6 +157,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
               Selecione um arquivo .md gerado por esta aplicação para importar os dados automaticamente.
+              O arquivo será validado para garantir compatibilidade.
             </div>
             
             <div className="flex items-center gap-4">

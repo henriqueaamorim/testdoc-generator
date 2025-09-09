@@ -23,7 +23,6 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       indicators: { planned: 0, executed: 0, openDefects: 0, fixedDefects: 0, successRate: 0 },
       summary: '',
       deliveryDate: '',
-      finalStatus: '', // Adicionado para corresponder ao arquivo .md
     },
   };
 
@@ -108,15 +107,36 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
     if (projectContent) {
         const requirementsMatch = projectContent.match(/### Requisitos\s*\n([\s\S]*?)(?=\n### |$)/);
         if (requirementsMatch) {
-            defaultData.project.requirements = parseMarkdownTable(requirementsMatch[1]).map(row => ({
-                id: row[0] || '', description: row[1] || ''
-            }));
+            console.log('🔍 [REQUISITOS] Conteúdo encontrado:', requirementsMatch[1].substring(0, 200));
+            const requirementsTable = parseMarkdownTable(requirementsMatch[1]);
+            console.log('🔍 [REQUISITOS] Tabela parseada:', requirementsTable);
+            
+            defaultData.project.requirements = requirementsTable.map((row, index) => {
+                console.log(`✅ [REQUISITOS] Processando linha ${index + 1}:`, row);
+                return {
+                    id: row[0] || `REQ${String(index + 1).padStart(3, '0')}`,
+                    description: row[1] || ''
+                };
+            });
+            
+            console.log('✅ [REQUISITOS] Total importados:', defaultData.project.requirements.length);
         }
         const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n([\s\S]*?)(?=\n## |$)/);
         if (testCasesMatch) {
-            defaultData.project.testCases = parseMarkdownTable(testCasesMatch[1]).map(row => ({
-                id: row[0] || '', functionality: row[1] || '', testScript: row[2] || ''
-            }));
+            console.log('🔍 [CASOS DE TESTE] Conteúdo encontrado:', testCasesMatch[1].substring(0, 200));
+            const testCasesTable = parseMarkdownTable(testCasesMatch[1]);
+            console.log('🔍 [CASOS DE TESTE] Tabela parseada:', testCasesTable);
+            
+            defaultData.project.testCases = testCasesTable.map((row, index) => {
+                console.log(`✅ [CASOS DE TESTE] Processando linha ${index + 1}:`, row);
+                return {
+                    id: row[0] || `TC${String(index + 1).padStart(3, '0')}`,
+                    functionality: row[1] || '',
+                    testScript: row[2] || ''
+                };
+            });
+            
+            console.log('✅ [CASOS DE TESTE] Total importados:', defaultData.project.testCases.length);
         }
     }
 
@@ -162,8 +182,7 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
         const deliveryDateMatch = deliveryContent.match(/- \*\*Data de Entrega:\*\* (.+)/);
         if (deliveryDateMatch) defaultData.delivery.deliveryDate = parseDate(deliveryDateMatch[1].trim());
 
-        const finalStatusMatch = deliveryContent.match(/- \*\*Status da Entrega:\*\* (.+)/);
-        if (finalStatusMatch) defaultData.delivery.finalStatus = finalStatusMatch[1].trim();
+        // Status da entrega removido - não faz parte da interface ProjectData
     }
 
     return defaultData;
@@ -175,45 +194,62 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
 
 // Funções auxiliares
 const parseMarkdownTable = (content: string): string[][] => {
+  console.log('🔍 [PARSER] Iniciando parse da tabela:', content.substring(0, 100) + '...');
+  
   const lines = content.split('\n').filter(line => line.trim());
-  if (lines.length < 2) return [];
-
-  // Encontra e remove a linha separadora (ex: |---|---|)
-  // para garantir que estamos processando apenas linhas de dados.
-  const separatorIndex = lines.findIndex(line => line.match(/^\|[\s\-\:]+\|$/));
-  if (separatorIndex === -1) {
-    // Se não houver separador, a tabela está mal formatada. Retorna vazio.
+  if (lines.length < 2) {
+    console.warn('⚠️ [PARSER] Tabela muito pequena, retornando vazio');
     return [];
   }
 
+  // Melhor regex para detectar linha separadora
+  const separatorRegex = /^\|[\s\-\:\|]+\|$/;
+  const separatorIndex = lines.findIndex(line => separatorRegex.test(line.trim()));
+  
+  console.log('🔍 [PARSER] Linhas encontradas:', lines.length);
+  console.log('🔍 [PARSER] Índice do separador:', separatorIndex);
+  
+  if (separatorIndex === -1) {
+    console.warn('⚠️ [PARSER] Nenhum separador encontrado, tentando processar como tabela simples');
+    // Fallback: processar todas as linhas que contêm '|'
+    const tableLines = lines.filter(line => line.includes('|') && !line.match(/^\s*\|[\s\-\:\|]*\|\s*$/));
+    return tableLines.map(line => 
+      line.split('|').slice(1, -1).map(cell => cell.trim())
+    ).filter(row => row.some(cell => cell.length > 0));
+  }
+
+  // Processar apenas as linhas de dados (após o separador)
   const dataLines = lines.slice(separatorIndex + 1);
+  console.log('🔍 [PARSER] Linhas de dados a processar:', dataLines.length);
+  
   const table: string[][] = [];
 
   for (const line of dataLines) {
     const trimmedLine = line.trim();
-
-    // Se a linha começa com '|', ela é uma nova linha da tabela.
-    if (trimmedLine.startsWith('|')) {
-      const newRow = trimmedLine
+    
+    if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+      const cells = trimmedLine
         .split('|')
-        .slice(1, -1) // Remove o primeiro e último elemento (vazios)
+        .slice(1, -1) // Remove bordas vazias
         .map(cell => cell.trim());
-      table.push(newRow);
+      
+      // Só adicionar se a linha tem conteúdo válido
+      if (cells.some(cell => cell.length > 0)) {
+        table.push(cells);
+        console.log('✅ [PARSER] Linha adicionada:', cells);
+      }
     }
-    // Se a linha NÃO começa com '|' e já existem linhas na nossa tabela,
-    // então este texto é uma continuação da última célula da linha anterior.
-    else if (table.length > 0) {
+    // Continuação de célula (multi-linha)
+    else if (table.length > 0 && trimmedLine.length > 0) {
       const lastRow = table[table.length - 1];
       const lastCellIndex = lastRow.length - 1;
-
       if (lastCellIndex >= 0) {
-        // Anexa o conteúdo da nova linha na última célula da linha anterior,
-        // adicionando um caractere de quebra de linha `\n` para manter a formatação.
         lastRow[lastCellIndex] = (lastRow[lastCellIndex] + '\n' + trimmedLine).trim();
       }
     }
   }
 
+  console.log('✅ [PARSER] Tabela processada com', table.length, 'linhas');
   return table;
 };
 
