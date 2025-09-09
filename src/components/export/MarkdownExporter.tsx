@@ -82,13 +82,28 @@ export const generateMarkdown = async (
 
   markdown += `### Casos de Teste\n\n`;
   if (projectData.project.testCases.length > 0) {
-    const testHeaders = ['ID', 'Funcionalidade', 'Script'];
-    const testRows = projectData.project.testCases.map(testCase => [
-      escapeMarkdown(formatFieldValue(testCase.id)),
-      escapeMarkdown(formatFieldValue(testCase.functionality)),
-      escapeMarkdown(formatFieldValue(testCase.testScript))
-    ]);
-    markdown += formatMarkdownTable(testHeaders, testRows) + '\n\n';
+    projectData.project.testCases.forEach((testCase, index) => {
+      // Tabela para ID
+      markdown += `| ID      |\n`;
+      markdown += `| ------- |\n`;
+      markdown += `| ${escapeMarkdown(formatFieldValue(testCase.id))} |\n\n`;
+      
+      // Tabela para Funcionalidade
+      markdown += `| Funcionalidade |\n`;
+      markdown += `| -------------------------------- |\n`;
+      markdown += `| ${escapeMarkdown(formatFieldValue(testCase.functionality))} |\n\n`;
+      
+      // Tabela para Script
+      markdown += `| Script |\n`;
+      markdown += `| ------ |\n`;
+      const scriptContent = formatFieldValue(testCase.testScript);
+      markdown += `${scriptContent} |\n\n`;
+      
+      // Adicionar espaçamento entre casos de teste
+      if (index < projectData.project.testCases.length - 1) {
+        markdown += `---\n\n`;
+      }
+    });
   } else {
     markdown += `Nenhum caso de teste adicionado\n\n`;
   }
