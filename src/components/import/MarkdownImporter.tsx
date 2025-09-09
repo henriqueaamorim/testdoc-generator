@@ -153,7 +153,7 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
     }
 
     // Parse test cases - simplified like requirements
-    const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n([\s\S]*?)(?=\n### |$)/);
+    const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n+([\s\S]*?)(?=\n### |\n## |$)/);
     if (testCasesMatch) {
       console.log('🔍 [CASOS DE TESTE] Parsing test cases...');
       const testTables = parseMarkdownTable(testCasesMatch[1]);
