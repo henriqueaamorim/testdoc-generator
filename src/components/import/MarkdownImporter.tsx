@@ -152,64 +152,9 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
       console.log('✅ [REQUISITOS] Requirements imported:', defaultData.project.requirements.length);
     }
 
-    // Parse test cases - JSON format with fallback to table
-    const testCasesMatch = projectContent.match(/### Casos de Teste\s*\n+([\s\S]*?)(?=\n### |\n## |$)/);
-    if (testCasesMatch) {
-      console.log('📋 [CASOS DE TESTE] Seção encontrada, iniciando parsing...');
-      const testCasesContent = testCasesMatch[1];
-      
-      // Tentar parsing JSON primeiro
-      const jsonBlockRegex = /```json\s*\n([\s\S]*?)\n```/;
-      const jsonMatch = testCasesContent.match(jsonBlockRegex);
-      
-      if (jsonMatch) {
-        console.log('📋 [CASOS DE TESTE] Bloco JSON encontrado, parseando...');
-        try {
-          const jsonData = JSON.parse(jsonMatch[1]);
-          if (jsonData.testCases && Array.isArray(jsonData.testCases)) {
-            defaultData.project.testCases = jsonData.testCases.map(tc => ({
-              id: tc.id || '',
-              functionality: tc.functionality || '',
-              testScript: tc.testScript || ''
-            }));
-            console.log('✅ [CASOS DE TESTE] Importados via JSON:', defaultData.project.testCases.length, 'casos');
-          } else {
-            console.warn('⚠️ [CASOS DE TESTE] Estrutura JSON inválida');
-          }
-        } catch (error) {
-          console.error('❌ [CASOS DE TESTE] Erro no parsing JSON:', error);
-          console.log('🔄 [CASOS DE TESTE] Tentando fallback para tabela...');
-          
-          // Fallback para formato de tabela
-          const testTables = parseMarkdownTable(testCasesContent);
-          if (testTables.length > 0) {
-            defaultData.project.testCases = testTables.map(row => ({
-              id: row[0] || '',
-              functionality: row[1] || '',
-              testScript: (row[2] || '').replace(/<br>/g, '\n')
-            }));
-            console.log('✅ [CASOS DE TESTE] Importados via fallback (tabela):', defaultData.project.testCases.length, 'casos');
-          }
-        }
-      } else {
-        console.log('🔄 [CASOS DE TESTE] JSON não encontrado, usando formato de tabela...');
-        
-        // Formato antigo de tabela
-        const testTables = parseMarkdownTable(testCasesContent);
-        if (testTables.length > 0) {
-          defaultData.project.testCases = testTables.map(row => ({
-            id: row[0] || '',
-            functionality: row[1] || '',
-            testScript: (row[2] || '').replace(/<br>/g, '\n')
-          }));
-          console.log('✅ [CASOS DE TESTE] Importados via tabela:', defaultData.project.testCases.length, 'casos');
-        } else {
-          console.warn('⚠️ [CASOS DE TESTE] Nenhuma tabela encontrada');
-        }
-      }
-    } else {
-      console.warn('⚠️ [CASOS DE TESTE] Seção "Casos de Teste" não encontrada');
-    }
+    // Parse test cases - JSON format as per new contract
+    const testCasesResult = parseTestCasesJSON(projectContent);
+    defaultData.project.testCases = testCasesResult.testCases;
   }
 
   // --- 4. Parse EXECUÇÃO ---
@@ -282,6 +227,100 @@ export const parseMarkdownToProjectData = (content: string): ProjectData => {
   console.log('📄 [IMPORT] Markdown parsing completed successfully');
   return defaultData;
 };
+
+// Parse test cases from JSON block in markdown according to new contract
+function parseTestCasesJSON(md: string): { testCases: { id: string; functionality: string; testScript: string }[] } {
+  console.log('📋 [CASOS DE TESTE] Iniciando parsing JSON...');
+  
+  // 1. Normalizar EOL
+  const normalizedMd = md.replace(/\r\n/g, '\n');
+  
+  // 2. Isolar a seção "Casos de Teste"
+  const sectionMatch = normalizedMd.match(/###\s*Casos de Teste\s*\n+([\s\S]*?)(?=\n### |\n## |$)/i);
+  if (!sectionMatch) {
+    console.warn('⚠️ [CASOS DE TESTE] Seção "Casos de Teste" não encontrada');
+    return { testCases: [] };
+  }
+  
+  console.log('✅ [CASOS DE TESTE] Seção encontrada');
+  const sectionContent = sectionMatch[1];
+  
+  // 3. Detectar bloco fenced - primeiro tenta com linguagem json, depois sem linguagem
+  let fenceMatch = sectionContent.match(/```json\s*([\s\S]*?)\s*```/im);
+  if (!fenceMatch) {
+    fenceMatch = sectionContent.match(/```\s*([\s\S]*?)\s*```/m);
+  }
+  if (!fenceMatch) {
+    fenceMatch = sectionContent.match(/~~~\s*([\s\S]*?)\s*~~~/m);
+  }
+  
+  if (!fenceMatch) {
+    console.warn('⚠️ [CASOS DE TESTE] Bloco JSON cercado não encontrado');
+    return { testCases: [] };
+  }
+  
+  console.log('✅ [CASOS DE TESTE] Bloco JSON encontrado');
+  
+  // 4. Sanitizar para JSON.parse
+  let payload = fenceMatch[1]
+    .replace(/^\uFEFF/, '') // Remove BOM
+    .replace(/[""]/g, '"') // Normalizar aspas inteligentes
+    .replace(/['']/g, "'")
+    .trim();
+  
+  // Opcional: remover trailing commas em objetos/arrays simples
+  payload = payload.replace(/,\s*([}\]])/g, '$1');
+  
+  // 5. Interpretar JSON
+  let parsedData: any;
+  try {
+    parsedData = JSON.parse(payload);
+    console.log('✅ [CASOS DE TESTE] JSON parseado com sucesso');
+  } catch (error) {
+    console.error('❌ [CASOS DE TESTE] Erro no parsing JSON:', error);
+    return { testCases: [] };
+  }
+  
+  // Normalizar estrutura: Array direto ou objeto com testCases
+  const testCasesArray = Array.isArray(parsedData) 
+    ? parsedData 
+    : (parsedData && Array.isArray(parsedData.testCases) ? parsedData.testCases : []);
+  
+  if (!Array.isArray(testCasesArray)) {
+    console.warn('⚠️ [CASOS DE TESTE] Estrutura JSON inválida - não é array');
+    return { testCases: [] };
+  }
+  
+  // 6. Validar e processar cada item
+  const validTestCases = testCasesArray
+    .filter((item, index) => {
+      const isValid = item && 
+        typeof item.id === 'string' && item.id.trim() !== '' &&
+        typeof item.functionality === 'string' && item.functionality.trim() !== '' &&
+        typeof item.testScript === 'string';
+      
+      if (!isValid) {
+        console.warn(`⚠️ [CASOS DE TESTE] Item ${index} inválido:`, item);
+      }
+      return isValid;
+    })
+    .map(item => ({
+      id: item.id.trim(),
+      functionality: item.functionality.trim(),
+      testScript: item.testScript.replace(/\r\n/g, '\n').replace(/<br\/?>/gi, '\n') // Converte <br> para \n
+    }));
+  
+  console.log(`✅ [CASOS DE TESTE] Processados ${validTestCases.length} casos válidos de ${testCasesArray.length} itens`);
+  
+  // Verificar IDs duplicados
+  const ids = validTestCases.map(tc => tc.id);
+  const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+  if (duplicateIds.length > 0) {
+    console.warn('⚠️ [CASOS DE TESTE] IDs duplicados encontrados:', [...new Set(duplicateIds)]);
+  }
+  
+  return { testCases: validTestCases };
+}
 
 // Helper functions
 function parseMarkdownList(content: string): string[] {
